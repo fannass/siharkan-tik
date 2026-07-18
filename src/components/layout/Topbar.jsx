@@ -6,6 +6,7 @@ import { getAllPinjaman } from '../../services/pinjaman'
 import { getAllTracking } from '../../services/tracking'
 import { signOut } from '../../services/auth'
 import { useAuth } from '../../contexts/AuthContext'
+import poldaLogo from '../../assets/polda-diy-logo.png'
 import tikLogo from '../../assets/tik-polri-logo.png'
 
 export default function Topbar({ title, onToggle, collapsed }) {
@@ -58,7 +59,7 @@ export default function Topbar({ title, onToggle, collapsed }) {
             items.push({
               id: `terlambat-${p.id}`,
               type: 'danger',
-              text: `HT ${p.id_ht} terlambat dikembalikan oleh ${p.satwil}`,
+              text: `HT ${p.jenis_ht || ''} terlambat dikembalikan oleh ${p.satwil}`,
               link: '/pinjaman-ht',
               time: `${Math.ceil((today - tgl)/86400000)} hari lewat`
             })
@@ -128,7 +129,7 @@ export default function Topbar({ title, onToggle, collapsed }) {
           )}
         </button>
         <div className="topbar-brand">
-          <div className="tb-logo"><img src={tikLogo} alt="Logo Bid TIK" style={{ width: 28, height: 'auto', verticalAlign: 'middle' }} /></div>
+          <div className="tb-logo"><img src={poldaLogo} alt="Logo Polda DIY" style={{ width: 28, height: 'auto', verticalAlign: 'middle' }} /></div>
           SIHARKAN-TIK
         </div>
         <div className="crumb"><span>Beranda</span><span className="sep">/</span><b>{title}</b></div>

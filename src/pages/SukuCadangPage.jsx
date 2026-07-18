@@ -6,7 +6,7 @@ import { useExport } from '../hooks/useExport'
 import { SearchBox, Table, Pagination, StatCard, Badge, IconButton, ToastContainer, ConfirmModal, LoadingSpinner, Modal } from '../components/ui'
 import { formatSatuan } from '../utils/format'
 
-const emptyForm = { nama: '', satuan: 'pcs', stok: 0, stok_awal: 0, min_stok: 0, transaksi_bln: 0, kategori_sc: '', tgl_transaksi: '' }
+const emptyForm = { nama: '', satuan: 'pcs', terima: 0, digunakan: 0, stok: 0, stok_awal: 0, min_stok: 0, transaksi_bln: 0, kategori_sc: '', tgl_transaksi: '' }
 
 export default function SukuCadangPage() {
   const [sukuCadangData, setSukuCadangData] = useState([])
@@ -56,7 +56,7 @@ export default function SukuCadangPage() {
   }
 
   function openEditForm(item) {
-    setForm({ nama: item.nama, satuan: item.satuan, stok: item.stok, stok_awal: item.stok_awal || 0, min_stok: item.min_stok, transaksi_bln: item.transaksi_bln, kategori_sc: item.kategori_sc, tgl_transaksi: item.tgl_transaksi || '' })
+    setForm({ nama: item.nama, satuan: item.satuan, terima: item.terima || 0, digunakan: item.digunakan || 0, stok: item.stok, stok_awal: item.stok_awal || 0, min_stok: item.min_stok, transaksi_bln: item.transaksi_bln, kategori_sc: item.kategori_sc, tgl_transaksi: item.tgl_transaksi || '' })
     setEditingId(item.id)
     setFormErrors({})
     setShowForm(true)
@@ -83,6 +83,8 @@ export default function SukuCadangPage() {
         stok_awal: Number(form.stok_awal) || 0,
         min_stok: Number(form.min_stok) || 0,
         satuan: form.satuan,
+        terima: Number(form.terima) || 0,
+        digunakan: Number(form.digunakan) || 0,
         transaksi_bln: Number(form.transaksi_bln) || 0,
         kategori_sc: form.kategori_sc
       }
@@ -124,6 +126,8 @@ export default function SukuCadangPage() {
   const columns = [
     { label: 'Nama Barang', key: 'nama', cellClass: 'cell-strong' },
     { label: 'Jumlah Unit', render: (i) => formatSatuan(i) },
+    { label: 'Terima', render: (i) => (i.terima || 0).toLocaleString('id-ID') },
+    { label: 'Digunakan', render: (i) => (i.digunakan || 0).toLocaleString('id-ID') },
     { label: 'Stok Minimum', key: 'min_stok' },
     { label: 'Tanggal Transaksi', render: (i) => i.transaksi_bln > 0 ? `${i.transaksi_bln} transaksi` : 'Belum ada' },
     { label: 'Status', render: (i) => <Badge variant={i.stok < i.min_stok ? 'red' : 'green'}>{i.stok < i.min_stok ? 'Stok Menipis' : 'Stok Aman'}</Badge> },
@@ -198,6 +202,14 @@ export default function SukuCadangPage() {
               <label>Jumlah Unit Saat Ini <span className="req">*</span></label>
               <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.stok} onChange={e => setForm({ ...form, stok: e.target.value.replace(/\D/g, '') })} />
               {formErrors.stok && <div className="form-error">{formErrors.stok}</div>}
+            </div>
+            <div className="field">
+              <label>Terima (Masuk)</label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={form.terima} onChange={e => setForm({ ...form, terima: e.target.value.replace(/\D/g, '') })} />
+            </div>
+            <div className="field">
+              <label>Digunakan (Keluar)</label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={form.digunakan} onChange={e => setForm({ ...form, digunakan: e.target.value.replace(/\D/g, '') })} />
             </div>
             <div className="field">
               <label>Stok Minimum <span className="req">*</span></label>

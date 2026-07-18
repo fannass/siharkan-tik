@@ -38,3 +38,9 @@ dist-ssr
 # OS
 .DS_Store
 Thumbs.db
+
+# Project-specific (non-source / local data)
+.ai file/
+.agents/
+docs/
+supabase/migrations/rev db/

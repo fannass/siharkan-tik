@@ -17,6 +17,8 @@ export async function createSukuCadang(item) {
     .insert({
       nama: item.nama,
       satuan: item.satuan || 'pcs',
+      terima: item.terima || 0,
+      digunakan: item.digunakan || 0,
       stok: item.stok || 0,
       stok_awal: (item.stok_awal ?? item.stok) || 0,
       min_stok: item.min_stok || 0,

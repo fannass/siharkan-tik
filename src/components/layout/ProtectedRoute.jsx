@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function ProtectedRoute() {
-  const { session, loading } = useAuth()
+  const { session, loading, userRole } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -23,6 +23,14 @@ export default function ProtectedRoute() {
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Role protection: User restriction
+  if (userRole === 'User') {
+    const restrictedPaths = ['/alat-tik', '/pinjaman-ht', '/sppm', '/suku-cadang']
+    if (restrictedPaths.some(path => location.pathname.startsWith(path))) {
+      return <Navigate to="/" replace />
+    }
   }
 
   return <Outlet />

@@ -1,6 +1,6 @@
 # SIHARKAN TIK
 
-**Sistem Informasi Harmonisasi Peralatan Komunikasi dan Teknologi Informasi — Bidang TIK Polda D.I. Yogyakarta**
+**Sistem Informasi Harmonisasi Peralatan Komunikasi dan Teknologi Informasi **
 
 SIHARKAN TIK adalah sistem manajemen internal berbasis web untuk mengelola inventaris perangkat TIK, peminjaman HT, suku cadang, dokumen SPPM, dan aduan perbaikan di lingkungan Bidang TIK Polda DIY. Sistem dibangun dengan React + Vite di sisi frontend dan Supabase (Auth, PostgreSQL, Storage) sebagai backend‑as‑a‑service.
 
@@ -10,7 +10,7 @@ SIHARKAN TIK adalah sistem manajemen internal berbasis web untuk mengelola inven
 
 ## Fitur Sekilas
 
-- Supabase Authentication (satu akun administrator)
+- Supabase Authentication dengan sistem role (Admin & User)
 - 7 modul CRUD dengan Supabase PostgreSQL
 - Pencarian, filter, dan paginasi di setiap tabel
 - Dasbor interaktif dengan statistik dan grafik donat
@@ -49,7 +49,7 @@ SIHARKAN TIK adalah sistem manajemen internal berbasis web untuk mengelola inven
 
 ### Masalah yang Dipecahkan
 
-Bidang TIK Polda DIY sebelumnya mengelola inventaris perangkat, peminjaman HT, suku cadang, dokumen SPPM, dan aduan perbaikan secara manual atau melalui sistem yang tidak terintegrasi. SIHARKAN TIK menyatukan semua proses tersebut dalam satu platform digital dengan otentikasi terpusat dan akses berbasis peran.
+Bidang TIK sebelumnya mengelola inventaris perangkat, peminjaman HT, suku cadang, dokumen SPPM, dan aduan perbaikan secara manual atau melalui sistem yang tidak terintegrasi. SIHARKAN TIK menyatukan semua proses tersebut dalam satu platform digital dengan otentikasi terpusat dan akses berbasis peran.
 
 ### Ruang Lingkup
 
@@ -62,7 +62,12 @@ Bidang TIK Polda DIY sebelumnya mengelola inventaris perangkat, peminjaman HT, s
 
 ### Pengguna
 
-Sistem saat ini menggunakan **satu akun administrator** melalui Supabase Auth. Tidak ada pendaftaran pengguna umum.
+Sistem menggunakan **dua peran** yang disimpan di tabel `profiles.role` (lihat migrasi `00005_create_profiles.sql`):
+
+- **Admin** — akses penuh ke seluruh modul CRUD dan dashboard statistik.
+- **User** — hanya melihat halaman sambutan (welcome) di dashboard; route admin otomatis di-redirect oleh `ProtectedRoute`.
+
+Setiap pengguna baru harus ditambahkan manual di Supabase Dashboard (Authentication → Users) dan perannya diatur di tabel `profiles`. Tidak ada halaman pendaftaran umum.
 
 ---
 
@@ -73,9 +78,9 @@ Sistem saat ini menggunakan **satu akun administrator** melalui Supabase Auth. T
 | **Dashboard** | Ringkasan statistik, grafik donat, akses cepat, aktivitas terbaru, notifikasi stok | ✅ Berfungsi |
 | **Login** | Autentikasi email/password via Supabase Auth | ✅ Berfungsi |
 | **Logout** | Hapus sesi, redirect ke halaman login | ✅ Berfungsi |
-| **Inventaris / Alat TIK** | CRUD inventaris, filter kategori/kondisi/lokasi, pencarian, paginasi, ekspor CSV, ID otomatis | ✅ Berfungsi |
-| **Pinjaman HT** | CRUD peminjaman, status dinamis (Dipinjam/Jatuh Tempo/Terlambat/Dikembalikan), tandai kembali, unggah file, pratinjau file | ✅ Berfungsi |
-| **Suku Cadang** | CRUD suku cadang, monitoring stok menipis/aman, statistik, ekspor CSV | ✅ Berfungsi |
+| **Inventaris / Alat TIK** | CRUD inventaris, filter kategori/kondisi/lokasi, pencarian, paginasi, ekspor CSV, ID otomatis, field Model & No. Seri | ✅ Berfungsi |
+| **Pinjaman HT** | CRUD peminjaman, status dinamis (Dipinjam/Jatuh Tempo/Terlambat/Dikembalikan), tandai kembali, unggah file, pratinjau file, field ID HT/No. Seri/Merk/Model | ✅ Berfungsi |
+| **Suku Cadang** | CRUD suku cadang, monitoring stok menipis/aman, statistik, ekspor CSV, field Terima (masuk)/Digunakan (keluar) | ✅ Berfungsi |
 | **SPPM** | CRUD SPPM, dua tab (Mabes/Polres), unggah file, pratinjau, unduh, ekspor CSV | ✅ Berfungsi |
 | **Tracking Perbaikan** | CRUD aduan, filter status/layanan, pencarian, unggah file, ekspor CSV | ✅ Berfungsi |
 | **Kontak Admin** | Tampilkan/edit informasi kontak administrator, simpan ke Supabase | ✅ Berfungsi |
@@ -90,10 +95,13 @@ Sistem saat ini menggunakan **satu akun administrator** melalui Supabase Auth. T
 ## 👤 Akses Pengguna
 
 - Sistem menggunakan **Supabase Authentication** dengan provider **Email / Password**.
-- Hanya terdapat **satu akun administrator** yang dikelola manual melalui Supabase Dashboard.
-- **Tidak ada halaman pendaftaran umum.** Pengguna baru hanya dapat ditambahkan oleh pengelola database di Supabase Auth.
+- Terdapat **dua peran**: `Admin` dan `User`, disimpan di tabel `profiles.role` (migrasi `00005_create_profiles.sql`).
+  - **Admin** — akses penuh ke seluruh modul CRUD dan dashboard statistik.
+  - **User** — hanya melihat halaman sambutan (welcome) di dashboard; route admin otomatis di-redirect oleh `ProtectedRoute`.
+- Pengguna baru ditambahkan manual di Supabase Dashboard (Authentication → Users); peran diatur di tabel `profiles`.
+- **Tidak ada halaman pendaftaran umum.**
 - Setiap route (kecuali `/login`) dilindungi oleh komponen `ProtectedRoute` — mengarahkan ke `/login` jika sesi tidak aktif.
-- Sesi dikelola melalui `autoRefreshToken` dan `persistSession`.
+- Sesi dikelola melalui `autoRefreshToken` dan `persistSession` (tersimpan di localStorage, sehingga login bertahan meski browser ditutup).
 
 > **Jangan menyimpan kredensial login di kode sumber atau README.**
 
@@ -188,7 +196,7 @@ flowchart TD
 
 Menampilkan ringkasan dari seluruh modul. Data statistik dikomputasi dari semua service.
 
-**Statistik:** total inventaris per kategori, kondisi HT, status tracking (Belum Ditindaklanjuti / Proses / Selesai), peminjaman HT aktif, stok suku cadang menipis.
+**Statistik:** total inventaris per kategori, kondisi HT, status tracking (Belum Ditindaklanjuti / Proses / Selesai), peminjaman HT aktif, stok suku cadang menipis. **Total HT** dihitung dari tabel `rekap_inventaris` (agregasi `jumlah` per kategori `HT`, total 4.184 unit) melalui service `rekap.js` dan `computeStats()` di `stats.js`; fallback ke per-unit bila rekap kosong.
 
 **Grafik:** donut chart kondisi inventaris.
 
@@ -200,6 +208,7 @@ Menampilkan ringkasan dari seluruh modul. Data statistik dikomputasi dari semua 
 |---|---|
 | `id` | VARCHAR(20) PK |
 | `nama`, `merk` | VARCHAR |
+| `model`, `serial_number` | VARCHAR (migrasi `00009`) |
 | `kategori_id` → kategori(id) | UUID |
 | `kondisi` | ENUM (Baik, Rusak Ringan, Rusak Berat) |
 | `lokasi_id` → satwil(id) | UUID |
@@ -213,6 +222,7 @@ Menampilkan ringkasan dari seluruh modul. Data statistik dikomputasi dari semua 
 |---|---|
 | `id` | UUID PK |
 | `id_ht` → inventaris(id) | VARCHAR(20) |
+| `serial_number`, `merk`, `model` | VARCHAR (migrasi `00009`) |
 | `satwil_id` → satwil(id) | UUID |
 | `tgl_pinjam`, `tgl_kembali` | DATE |
 | `keterangan` | TEXT |
@@ -234,7 +244,8 @@ Menampilkan ringkasan dari seluruh modul. Data statistik dikomputasi dari semua 
 |---|---|
 | `id` | UUID PK |
 | `nama`, `satuan` | VARCHAR |
-| `stok`, `min_stok`, `transaksi_bln` | INTEGER |
+| `stok`, `stok_awal`, `min_stok`, `transaksi_bln` | INTEGER |
+| `terima`, `digunakan` | INTEGER (migrasi `00009`) |
 | `kategori_sc` | VARCHAR |
 
 **Peringatan otomatis** ketika `stok < min_stok`.
@@ -294,6 +305,8 @@ erDiagram
         varchar id PK
         varchar nama
         varchar merk
+        varchar model
+        varchar serial_number
         uuid kategori_id FK
         enum kondisi
         uuid lokasi_id FK
@@ -302,6 +315,9 @@ erDiagram
     pinjaman {
         uuid id PK
         varchar id_ht FK
+        varchar serial_number
+        varchar merk
+        varchar model
         uuid satwil_id FK
         date tgl_pinjam
         date tgl_kembali
@@ -315,9 +331,21 @@ erDiagram
         varchar nama
         varchar satuan
         int stok
+        int stok_awal
         int min_stok
         int transaksi_bln
+        int terima
+        int digunakan
         varchar kategori_sc
+    }
+    rekap_inventaris {
+        uuid id PK
+        varchar satwil
+        varchar kategori
+        varchar merk
+        varchar kondisi
+        int jumlah
+        timestamptz created_at
     }
     tracking {
         varchar id PK
@@ -351,6 +379,7 @@ erDiagram
     satwil ||--o{ tracking : "pelapor"
     kategori ||--o{ inventaris : "kategori"
     inventaris ||--o{ pinjaman : "HT dipinjam"
+    rekap_inventaris ||--o{ inventaris : "ringkasan jumlah"
 ```
 
 ### Tabel Database
@@ -359,16 +388,17 @@ erDiagram
 |-------|---------|---------|
 | `satwil` | UUID | Referensi satuan wilayah (6 row seed) |
 | `kategori` | UUID | Referensi kategori alat (8 row seed) |
-| `inventaris` | VARCHAR(20) | ID dengan prefix: HT‑, TWR‑, RPT‑, dll |
-| `pinjaman` | UUID | Status dihitung dinamis via `is_returned` + `tgl_kembali` |
-| `suku_cadang` | UUID | Kolom `stok_awal` ditambahkan via migrasi manual |
+| `inventaris` | VARCHAR(20) | ID dengan prefix: HT‑, TWR‑, RPT‑, dll; kolom `model` & `serial_number` (migrasi `00009`) |
+| `pinjaman` | UUID | Status dihitung dinamis via `is_returned` + `tgl_kembali`; kolom `id_ht`/`serial_number`/`merk`/`model` (migrasi `00009`) |
+| `suku_cadang` | UUID | Kolom `stok_awal` ditambahkan via migrasi manual; kolom `terima` & `digunakan` (migrasi `00009`) |
+| `rekap_inventaris` | UUID | Tabel ringkasan jumlah per satwil/kategori/merk/kondisi; sumber Total HT dashboard (migrasi `00009`) |
 | `tracking` | VARCHAR(20) | ID format `ADU‑XXX` |
 | `sppm` | UUID | Field `sumber` dibatasi: Mabes Polri / Polres |
 | `admin_config` | UUID | Hanya 1 row; menyimpan kontak administrator |
 
 ### Row Level Security
 
-Semua tabel memiliki RLS diaktifkan. Migrasi `00003_hotfix_rls_anon.sql` menetapkan kebijakan `USING (true)` (allow all) untuk semua operasi karena aplikasi menggunakan kustom login yang membuat `auth.role()` selalu `anon`.
+Semua tabel memiliki RLS diaktifkan. Migrasi `00003_hotfix_rls_anon.sql` menetapkan kebijakan `USING (true)` (allow all) untuk semua operasi karena aplikasi menggunakan kustom login yang membuat `auth.role()` selalu `anon`. Tabel `rekap_inventaris` (migrasi `00009`) memiliki kebijakan terpisah: `SELECT` untuk `authenticated`, `INSERT`/`UPDATE`/`DELETE` untuk `service_role`.
 
 ---
 
@@ -435,7 +465,7 @@ siharkan-tik-web/
 │   ├── App.jsx              # Root component
 │   └── main.jsx             # Entry point
 ├── supabase/
-│   └── migrations/          # 4 file migrasi SQL
+│   └── migrations/          # 10 file migrasi SQL (00001–00007, 00009–0010)
 ├── .env                     # Environment variables (tidak dikomit)
 ├── .env.example             # Template env
 ├── package.json
@@ -455,7 +485,7 @@ siharkan-tik-web/
 | `lib/` | Inisialisasi Supabase client — membaca env `VITE_SUPABASE_URL` dan `VITE_SUPABASE_PUBLISHABLE_KEY` |
 | `pages/` | 8 halaman: LoginPage + 7 protected pages |
 | `routes/` | `AppRoutes` — lazy loading, error boundary, protected route wrapper |
-| `services/` | 10 file service: tiap file mengelola akses ke satu tabel Supabase + storage + auth |
+| `services/` | 11 file service: tiap file mengelola akses ke satu tabel Supabase + storage + auth (+ `rekap.js`) |
 | `utils/` | Fungsi utilitas: `exportToCSV()`, `formatTanggal()`, `formatSatuan()` |
 
 ---
@@ -523,15 +553,24 @@ Buka **SQL Editor** di Supabase Dashboard, jalankan file migrasi dari `supabase/
 - `00001_initial_schema_fixed.sql` atau `00001_initial_schema.sql`
 - `00002_rls_and_storage.sql`
 - `00003_hotfix_rls_anon.sql`
+- `00004_rename_ht_to_jenis_ht.sql`
+- `00005_create_profiles.sql` (tabel `profiles` + role)
+- `00006_seed_sample_data.sql`
+- `00007_fix_pinjaman_schema.sql`
+- `00009_fix_schema_real_data.sql` (kolom `model`/`serial_number` di inventaris, `terima`/`digunakan` di suku_cadang, `id_ht`/`serial_number`/`merk`/`model` di pinjaman, tabel `rekap_inventaris` + RLS)
+- `0010_seed_real_data.sql` (data riil : SPPM, suku cadang, inventaris 17 HT, pinjaman 36, rekap_inventaris 42 row / total HT 4.184)
+
+> Catatan: file `00008` tidak ada di repositori. Migrasi `00009` dan `0010` dijalankan manual via SQL Editor.
 
 Migrasi akan membuat tabel, relasi, seed data, bucket storage, dan kebijakan RLS.
 
-### 3. Buat Pengguna Auth
+### 3. Buat Pengguna Auth & Atur Role
 
 - Buka **Authentication → Users** di Supabase Dashboard
 - Klik **Add User**
-- Masukkan email dan password untuk akun administrator
+- Masukkan email dan password untuk akun
 - **Pastikan** untuk mengonfirmasi email pengguna (atau nonaktifkan confirm email di Auth settings)
+- Atur peran di tabel `profiles`: `Admin` atau `User` (lihat migrasi `00005_create_profiles.sql`)
 
 > Atau gunakan panel Settings → Configuration → Provider → Email — nonaktifkan **Confirm email** untuk memudahkan pengujian.
 
@@ -670,7 +709,7 @@ Tidak ada konfigurasi deployment spesifik di dalam proyek saat ini (tidak ada fi
 
 1. **RLS menggunakan `USING (true)`** — migrasi `00003_hotfix_rls_anon.sql` menetapkan kebijakan allow‑all karena `auth.role()` selalu `anon` di lingkungan saat ini. Database pada praktiknya tidak memiliki proteksi RLS. Untuk production, implementasi autentikasi perlu disesuaikan sehingga `auth.role()` mengembalikan `authenticated`, lalu kebijakan RLS diperketat.
 
-2. **Satu akun administrator** — tidak ada sistem role atau multi‑user. Setiap pengguna baru harus ditambahkan manual di Supabase Dashboard.
+2. **Sistem role sederhana** — hanya dua peran (`Admin`/`User`) via tabel `profiles`. `User` hanya melihat welcome dashboard; belum ada pembatasan data per-satwil atau audit log.
 
 ### Fungsional
 
@@ -688,6 +727,9 @@ Tidak ada konfigurasi deployment spesifik di dalam proyek saat ini (tidak ada fi
 
 ### Jangka Pendek
 
+- [x] Migrasi `00009`/`0010`: kolom baru (model, serial, terima/digunakan, id_ht/merk/model) + tabel `rekap_inventaris`
+- [x] Service `rekap.js` + `computeStats()` menghitung Total HT dari rekap (4.184 unit)
+- [x] Sistem role Admin/User via tabel `profiles`
 - [ ] Perketat RLS: `auth.role() = 'authenticated'`
 - [ ] Verifikasi acceptance test untuk seluruh modul
 - [ ] Tambah animasi transisi halaman
@@ -695,7 +737,7 @@ Tidak ada konfigurasi deployment spesifik di dalam proyek saat ini (tidak ada fi
 ### Security Hardening
 
 - [ ] Audit kebijakan RLS untuk seluruh tabel
-- [ ] Implementasi role‑based access control jika multi‑pengguna dibutuhkan
+- [ ] Perketat RLS `rekap_inventaris` (saat ini SELECT = authenticated, write = service_role)
 - [ ] Gunakan Supabase Edge Function untuk operasi yang membutuhkan service_role key
 
 ### Enhancement

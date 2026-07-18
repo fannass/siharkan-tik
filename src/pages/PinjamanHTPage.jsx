@@ -9,7 +9,8 @@ import { useExport } from '../hooks/useExport'
 import { SearchBox, Table, Pagination, StatCard, Badge, IconButton, ToastContainer, ConfirmModal, LoadingSpinner, Modal } from '../components/ui'
 
 const statusVariant = (s) => s === 'Dipinjam' ? 'blue' : s === 'Terlambat' ? 'red' : s === 'Jatuh Tempo' ? 'amber' : 'green'
-const emptyForm = { id_ht: '', satwil: '', tgl_pinjam: '', tgl_kembali: '', keterangan: '', file: null }
+const emptyForm = { jenis_ht: '', id_ht: '', serial_number: '', merk: '', model: '', satwil: '', tgl_pinjam: '', tgl_kembali: '', keterangan: '', file: null }
+const jenisHTOptions = ['APX 1000', 'APX 1000i', 'Hytera', 'Tait']
 
 // Hitung status dinamis dari is_returned + tanggal kembali
 function computeActualStatus(isReturned, tglKembali) {
@@ -70,7 +71,7 @@ export default function PinjamanHTPage() {
         tgl_dikembalikan: new Date().toISOString(),
         status: 'Dikembalikan'
       })
-      success(`HT ${returnTarget.id_ht} berhasil ditandai dikembalikan`)
+      success(`HT ${returnTarget.jenis_ht} berhasil ditandai dikembalikan`)
       setReturnTarget(null)
       const [pinjaman, inventaris, satwil] = await Promise.all([
         getAllPinjaman(), getAllInventaris(), getSatwilList()
@@ -109,7 +110,14 @@ export default function PinjamanHTPage() {
     return () => { cancelled = true }
   }, [])
 
-  const { searchTerm, setSearchTerm, filtered } = useSearch(pinjamanData, ['id_ht', 'satwil', 'status'])
+  // Compute the dynamic status onto each row so search/filter can use it
+  const pinjamanWithStatus = useMemo(() =>
+    pinjamanData.map(p => ({
+      ...p,
+      statusComputed: computeActualStatus(p.is_returned, p.tgl_kembali)
+    })), [pinjamanData])
+
+  const { searchTerm, setSearchTerm, filtered } = useSearch(pinjamanWithStatus, ['jenis_ht', 'satwil', 'statusComputed'])
   const { currentPage, setCurrentPage, paginatedData, totalPages } = usePagination(filtered, 10)
 
   function openCreateForm() {
@@ -120,7 +128,7 @@ export default function PinjamanHTPage() {
   }
 
   function openEditForm(item) {
-    setForm({ id_ht: item.id_ht, satwil: item.satwil, tgl_pinjam: item.tgl_pinjam, tgl_kembali: item.tgl_kembali, keterangan: item.keterangan || '', file_url: item.file_url || '' })
+    setForm({ jenis_ht: item.jenis_ht, id_ht: item.id_ht || '', serial_number: item.serial_number || '', merk: item.merk || '', model: item.model || '', satwil: item.satwil, tgl_pinjam: item.tgl_pinjam, tgl_kembali: item.tgl_kembali, keterangan: item.keterangan || '', file_url: item.file_url || '' })
     setEditingId(item.id)
     setFormErrors({})
     setShowForm(true)
@@ -128,7 +136,7 @@ export default function PinjamanHTPage() {
 
   function validate() {
     const errs = {}
-    if (!form.id_ht) errs.id_ht = 'Pilih HT'
+    if (!form.jenis_ht) errs.jenis_ht = 'Pilih Jenis HT'
     if (!form.satwil) errs.satwil = 'Pilih Satwil'
     if (!form.tgl_pinjam) errs.tgl_pinjam = 'Tanggal pinjam harus diisi'
     if (!form.tgl_kembali) errs.tgl_kembali = 'Tanggal kembali harus diisi'
@@ -196,7 +204,11 @@ export default function PinjamanHTPage() {
   }
 
   const columns = [
-    { label: 'ID HT', key: 'id_ht', cellClass: 'cell-strong' },
+    { label: 'Jenis HT', key: 'jenis_ht', cellClass: 'cell-strong' },
+    { label: 'ID HT', key: 'id_ht' },
+    { label: 'No. Seri', key: 'serial_number' },
+    { label: 'Merk', key: 'merk' },
+    { label: 'Model', key: 'model' },
     { label: 'Satwil Peminjam', key: 'satwil' },
     { label: 'Tgl Pinjam', key: 'tgl_pinjam' },
     { label: 'Tgl Kembali', key: 'tgl_kembali' },
@@ -238,9 +250,9 @@ export default function PinjamanHTPage() {
   return (
     <div>
       <ToastContainer toasts={toasts} />
-      <ConfirmModal open={!!deleteTarget} title="Hapus Data Pinjaman" message={`Yakin ingin menghapus pinjaman ${deleteTarget?.id_ht}?`} confirmLabel="Hapus" confirmVariant="danger" onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
+      <ConfirmModal open={!!deleteTarget} title="Hapus Data Pinjaman" message={`Yakin ingin menghapus pinjaman ${deleteTarget?.jenis_ht}?`} confirmLabel="Hapus" confirmVariant="danger" onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
 
-      <ConfirmModal open={!!returnTarget} title="Tandai Dikembalikan" message={`Konfirmasi bahwa HT ${returnTarget?.id_ht} sudah dikembalikan oleh ${returnTarget?.satwil}?`} confirmLabel="Ya, Kembalikan" confirmVariant="primary" onConfirm={handleReturn} onCancel={() => setReturnTarget(null)} loading={returning} />
+      <ConfirmModal open={!!returnTarget} title="Tandai Dikembalikan" message={`Konfirmasi bahwa HT ${returnTarget?.jenis_ht} sudah dikembalikan oleh ${returnTarget?.satwil}?`} confirmLabel="Ya, Kembalikan" confirmVariant="primary" onConfirm={handleReturn} onCancel={() => setReturnTarget(null)} loading={returning} />
 
       <div className="page-head">
         <div><h1>Pinjam Pakai HT</h1><p>Catat dan pantau peminjaman HT oleh Satwil jajaran Polda DIY</p></div>
@@ -263,7 +275,7 @@ export default function PinjamanHTPage() {
 
       <div className="card">
         <div className="toolbar">
-          <SearchBox placeholder="Cari ID HT atau Satwil peminjam..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ flex: 1, minWidth: 320 }} />
+          <SearchBox placeholder="Cari Jenis HT atau Satwil peminjam..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ flex: 1, minWidth: 320 }} />
         </div>
         {loading ? <LoadingSpinner text="Memuat data..." /> : (
           <>
@@ -278,12 +290,12 @@ export default function PinjamanHTPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="field">
-              <label>ID HT <span className="req">*</span></label>
-              <select value={form.id_ht} onChange={e => setForm({ ...form, id_ht: e.target.value })}>
-                <option value="">Pilih HT</option>
-                {htList.map(h => <option key={h.id} value={h.id}>{h.id} — {h.nama} ({h.kondisi})</option>)}
+              <label>Jenis HT <span className="req">*</span></label>
+              <select value={form.jenis_ht} onChange={e => setForm({ ...form, jenis_ht: e.target.value })}>
+                <option value="">Pilih Jenis HT</option>
+                {jenisHTOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
-              {formErrors.id_ht && <div className="form-error">{formErrors.id_ht}</div>}
+              {formErrors.jenis_ht && <div className="form-error">{formErrors.jenis_ht}</div>}
             </div>
             <div className="field">
               <label>Satwil Peminjam <span className="req">*</span></label>
@@ -292,6 +304,22 @@ export default function PinjamanHTPage() {
                 {satwilList.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               {formErrors.satwil && <div className="form-error">{formErrors.satwil}</div>}
+            </div>
+            <div className="field">
+              <label>ID HT</label>
+              <input type="text" placeholder="Contoh: HT-REAL-002" value={form.id_ht} onChange={e => setForm({ ...form, id_ht: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>No. Seri</label>
+              <input type="text" placeholder="Contoh: 837TUB5774/750901" value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Merk</label>
+              <input type="text" placeholder="Contoh: Motorola" value={form.merk} onChange={e => setForm({ ...form, merk: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Model</label>
+              <input type="text" placeholder="Contoh: APX 1000" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
             </div>
             <div className="field">
               <label>Tanggal Pinjam <span className="req">*</span></label>
@@ -312,7 +340,7 @@ export default function PinjamanHTPage() {
                     icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>} 
                     className="btn-icon" 
                     type="button"
-                    onClick={() => { setPreviewItem({ file_url: form.file_url, id_ht: 'File Pendukung' }); setShowPreview(true) }} 
+                    onClick={() => { setPreviewItem({ file_url: form.file_url, jenis_ht: 'File Pendukung' }); setShowPreview(true) }} 
                     title="Lihat File"
                   />
                   <button type="button" className="btn btn-sm" onClick={() => setForm({ ...form, file_url: '', file: null })}>Ganti File</button>
@@ -345,7 +373,7 @@ export default function PinjamanHTPage() {
           </div>
         </form>
       </Modal>
-      <Modal open={showPreview} title={previewItem?.id_ht || 'Preview File'} onClose={() => { setShowPreview(false); setPreviewItem(null) }} size="large">
+      <Modal open={showPreview} title={previewItem?.jenis_ht || 'Preview File'} onClose={() => { setShowPreview(false); setPreviewItem(null) }} size="large">
         <div style={{ height: '70vh', width: '100%' }}>
           <iframe src={previewItem?.file_url} style={{ width: '100%', height: '100%', border: 'none' }} title="File Preview" />
         </div>

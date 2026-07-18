@@ -9,7 +9,7 @@ import { formatTanggal } from '../utils/format'
 
 const kondisiOptions = ['Baik', 'Rusak Ringan', 'Rusak Berat']
 const kondisiVariant = (k) => k === 'Baik' ? 'green' : k === 'Rusak Ringan' ? 'amber' : 'red'
-const emptyForm = { id: '', nama: '', merk: '', kategori: 'HT', kondisi: 'Baik', lokasi: '', tgl: '' }
+const emptyForm = { id: '', nama: '', merk: '', model: '', serial_number: '', kategori: 'HT', kondisi: 'Baik', lokasi: '', tgl: '' }
 
 const KATEGORI_PREFIX = {
   HT: 'HT-',
@@ -105,7 +105,7 @@ export default function AlatTIKPage() {
   function openEditForm(item) {
     const prefix = KATEGORI_PREFIX[item.kategori] || ''
     const number = item.id?.startsWith(prefix) ? item.id.slice(prefix.length) : ''
-    setForm({ id: item.id, nama: item.nama || '', merk: item.merk || '', kategori: item.kategori, kondisi: item.kondisi, lokasi: item.lokasi, tgl: item.tgl || '' })
+    setForm({ id: item.id, nama: item.nama || '', merk: item.merk || '', model: item.model || '', serial_number: item.serial_number || '', kategori: item.kategori, kondisi: item.kondisi, lokasi: item.lokasi, tgl: item.tgl || '' })
     setEditingId(item.id)
     setFormErrors({})
     setIdNumber(number)
@@ -175,6 +175,8 @@ export default function AlatTIKPage() {
     { label: 'No / ID', key: 'id', cellClass: 'cell-strong' },
     { label: 'Nama Barang', key: 'nama', cellClass: 'cell-strong' },
     { label: 'Merk', key: 'merk' },
+    { label: 'Model', key: 'model' },
+    { label: 'No. Seri', key: 'serial_number' },
     { label: 'Jenis', render: (i) => <TypeTag type={i.kategori.toLowerCase()}>{i.kategori}</TypeTag> },
     { label: 'Kondisi', render: (i) => <Badge variant={kondisiVariant(i.kondisi)}>{i.kondisi}</Badge> },
     { label: 'Lokasi', key: 'lokasi' },
@@ -284,6 +286,16 @@ export default function AlatTIKPage() {
                 {formErrors.merk && <div className="form-error">{formErrors.merk}</div>}
               </div>
             ) : null}
+            {form.kategori === 'HT' ? (
+              <div className="field">
+                <label>Model</label>
+                <input type="text" placeholder="Contoh: APX 1000" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
+              </div>
+            ) : null}
+            <div className="field">
+              <label>No. Seri</label>
+              <input type="text" placeholder="Contoh: 837TUB5774/750901" value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
+            </div>
             <div className="field full">
               <label>Lokasi <span className="req">*</span></label>
               <select value={form.lokasi} onChange={e => setForm({ ...form, lokasi: e.target.value })}>

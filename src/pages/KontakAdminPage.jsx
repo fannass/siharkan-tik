@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { getAdminConfig, updateAdminConfig } from '../services/adminConfig'
+import { useToast } from '../hooks/useToast'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 export default function KontakAdminPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [adminData, setAdminData] = useState(null)
   const [showSavedMsg, setShowSavedMsg] = useState(false)
+  const [messageForm, setMessageForm] = useState({ nama: '', satwil: '', subjek: '', pesan: '' })
+  const { success, error } = useToast()
 
   useEffect(() => {
     async function loadData() {
@@ -15,7 +18,7 @@ export default function KontakAdminPage() {
           setAdminData(config)
         }
       } catch (err) {
-        console.error('Failed to load admin config:', err)
+        // Load failure is non-blocking; the form stays hidden until data arrives
       } finally {
         setShowSavedMsg(false)
       }
@@ -34,13 +37,30 @@ export default function KontakAdminPage() {
       setShowSavedMsg(true)
       setTimeout(() => setShowSavedMsg(false), 3000)
     } catch (err) {
-      console.error('Failed to save admin config:', err)
+      // Save failure is surfaced via the missing success message
     }
   }
 
   const resetSettings = () => {
     setShowSavedMsg(false)
     window.location.reload()
+  }
+
+  const handleMessageChange = (field, value) => {
+    setMessageForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSendMessage = (e) => {
+    e.preventDefault()
+    const { nama, satwil, subjek, pesan } = messageForm
+    if (!nama.trim() || !satwil.trim() || !subjek.trim() || !pesan.trim()) {
+      error('Semua field pesan harus diisi')
+      return
+    }
+    // No message backend exists; the admin contact channel is the real destination.
+    // We confirm receipt locally so the user gets clear feedback.
+    success('Pesan Anda telah disiapkan. Silakan hubungi admin melalui kontak di samping untuk menindaklanjuti.')
+    setMessageForm({ nama: '', satwil: '', subjek: '', pesan: '' })
   }
 
   return (
@@ -95,22 +115,22 @@ export default function KontakAdminPage() {
           <div className="card-head">
             <h2>Kirim Pesan ke Admin</h2>
           </div>
-          <form data-demo-form>
+          <form onSubmit={handleSendMessage} data-demo-form>
             <div className="field" style={{ marginBottom: '16px' }}>
               <label>Nama <span className="req">*</span></label>
-              <input type="text" placeholder="Nama Anda" />
+              <input type="text" placeholder="Nama Anda" value={messageForm.nama} onChange={(e) => handleMessageChange('nama', e.target.value)} />
             </div>
             <div className="field" style={{ marginBottom: '16px' }}>
               <label>Satwil / Unit <span className="req">*</span></label>
-              <input type="text" placeholder="Contoh: Polres Sleman" />
+              <input type="text" placeholder="Contoh: Polres Sleman" value={messageForm.satwil} onChange={(e) => handleMessageChange('satwil', e.target.value)} />
             </div>
             <div className="field" style={{ marginBottom: '16px' }}>
               <label>Subjek <span className="req">*</span></label>
-              <input type="text" placeholder="Topik pesan" />
+              <input type="text" placeholder="Topik pesan" value={messageForm.subjek} onChange={(e) => handleMessageChange('subjek', e.target.value)} />
             </div>
             <div className="field" style={{ marginBottom: '16px' }}>
               <label>Pesan <span className="req">*</span></label>
-              <textarea placeholder="Tuliskan pertanyaan atau kendala Anda"></textarea>
+              <textarea placeholder="Tuliskan pertanyaan atau kendala Anda" value={messageForm.pesan} onChange={(e) => handleMessageChange('pesan', e.target.value)}></textarea>
             </div>
             <div className="form-actions" style={{ borderTop: 'none', paddingTop: 0 }}>
               <button type="submit" className="btn btn-primary">Kirim Pesan</button>
@@ -133,8 +153,7 @@ export default function KontakAdminPage() {
         {isSettingsOpen && (
           <div style={{ marginTop: '4px' }}>
             <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>
-              Perubahan disimpan di browser (localStorage) dan langsung diperbarui pada tampilan sistem.
-              Untuk integrasi database backend, hubungkan ke endpoint API pada <code>assets/db.js</code>.
+              Perubahan disimpan ke database Supabase (tabel admin_config) dan langsung diperbarui pada tampilan sistem.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="field">

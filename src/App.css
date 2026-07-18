@@ -72,7 +72,7 @@ button{font-family:inherit;cursor:pointer}
 .sidebar.collapsed .menu-item span,
 .sidebar.collapsed .user-box .who{display:none}
 .sidebar.collapsed .brand-inner{justify-content:center;padding:16px 0}
-.sidebar.collapsed .brand-logo{width:40px;height:40px}
+.sidebar.collapsed .brand-logo{width:40px;height:40px;background:transparent}
 .sidebar.collapsed .menu-item{justify-content:center;padding:12px 0}
 .sidebar.collapsed .menu-item svg{margin:0;opacity:1}
 .sidebar.collapsed .user-box{justify-content:center;padding:14px 0}
@@ -89,10 +89,9 @@ button{font-family:inherit;cursor:pointer}
   padding:16px 18px;
 }
 .brand-logo{
-  width:44px;height:44px;border-radius:10px;flex:none;
-  background:linear-gradient(145deg,var(--polri-gold) 0%,var(--polri-gold-2) 100%);
+  width:44px;height:44px;flex:none;
+  background:transparent;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px rgba(200,164,21,.35);
 }
 .brand-logo svg{width:26px;height:26px;color:var(--polri-navy)}
 .brand-text .sys-name{
@@ -716,6 +715,41 @@ tbody tr:hover{background:#FAFCFF}
   .login-wrap{padding:12px}
   .login-card{padding:28px 22px}
 }
+
+/* ──────────────────────────────────────────
+   USER DASHBOARD (role User)
+────────────────────────────────────────── */
+.welcome-hero.user-hero{
+  background:linear-gradient(120deg, #0F2A4A 0%, #1E4D7B 100%);
+}
+.welcome-hero.user-hero::after{
+  border-color:rgba(255,255,255,.10);
+}
+.welcome-hero.user-hero::before{
+  border-color:rgba(255,255,255,.07);
+}
+.welcome-hero.user-hero .wh-eyebrow{color:var(--polri-gold-light)}
+.welcome-hero.user-hero .wh-eyebrow::before{background:var(--polri-gold-light)}
+.welcome-hero.user-hero h1{color:#fff}
+.welcome-hero.user-hero p{color:#C7D8EC}
+.welcome-hero.user-hero .wm-label{color:#9DB4D8}
+.welcome-hero.user-hero .wm-value{color:#EAF2FB}
+
+.aduan-list{display:flex;flex-direction:column;gap:2px}
+.aduan-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 4px;border-bottom:1px solid var(--border);
+}
+.aduan-row:last-child{border-bottom:none}
+.aduan-main{min-width:0}
+.aduan-jenis{font-size:13.5px;font-weight:700;color:var(--polri-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aduan-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.user-tip{
+  margin-top:16px;padding:12px 14px;border-radius:8px;
+  background:var(--polri-gold-bg);border:1px solid #F0E2A8;
+  font-size:12.5px;color:#7A5E00;line-height:1.5;
+}
+.user-tip b{color:#5C4700}
 
 /* Mobile very small (< 400px) */
 @media(max-width:400px){

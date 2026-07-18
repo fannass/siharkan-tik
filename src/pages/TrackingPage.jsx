@@ -84,7 +84,7 @@ export default function TrackingPage() {
 
   function validate() {
     const errs = {}
-    if (!form.satwil) errs.satwil = 'Pilih Satwil'
+    if (!form.satwil) errs.satwil = 'Pilih Satker Mapolda'
     if (!form.jenis.trim()) errs.jenis = 'Jenis layanan harus diisi'
     if (!form.tgl) errs.tgl = 'Tanggal harus diisi'
     setFormErrors(errs)
@@ -196,9 +196,9 @@ export default function TrackingPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="field">
-              <label>Satker/Satwil Pemohon <span className="req">*</span></label>
+              <label>Satker Mapolda <span className="req">*</span></label>
               <select value={form.satwil} onChange={e => setForm({ ...form, satwil: e.target.value })}>
-                <option value="">Pilih Satwil</option>
+                <option value="">Pilih Satker Mapolda</option>
                 {satwilList.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               {formErrors.satwil && <div className="form-error">{formErrors.satwil}</div>}

@@ -1,20 +1,33 @@
-export function computeStats(inventaris, pinjaman, suku_cadang, tracking) {
+export function computeStats(inventaris, pinjaman, suku_cadang, tracking, rekap = []) {
   const totalAlat = inventaris.length
   const alatBaik = inventaris.filter(i => i.kondisi === 'Baik').length
   const alatRR = inventaris.filter(i => i.kondisi === 'Rusak Ringan').length
   const alatRB = inventaris.filter(i => i.kondisi === 'Rusak Berat').length
 
-  const byKategori = inventaris.reduce((acc, item) => {
-    const k = item.kategori || item.kategori_id
-    acc[k] = (acc[k] || 0) + 1
-    return acc
-  }, {})
+  // Rekap inventaris adalah snapshot agregat (4.184 HT), bukan per-unit.
+  // Gunakan ini untuk total per kategori & HT agar dashboard akurat.
+  const byKategori = rekap.length
+    ? rekap.reduce((acc, item) => {
+        const k = item.kategori
+        acc[k] = (acc[k] || 0) + (item.jumlah || 0)
+        return acc
+      }, {})
+    : inventaris.reduce((acc, item) => {
+        const k = item.kategori || item.kategori_id
+        acc[k] = (acc[k] || 0) + 1
+        return acc
+      }, {})
 
-  const htList = inventaris.filter(i => (i.kategori === 'HT' || i.kategori_id === 'HT'))
-  const totalHT = htList.length
-  const htBaik = htList.filter(h => h.kondisi === 'Baik').length
-  const htRR = htList.filter(h => h.kondisi === 'Rusak Ringan').length
-  const htRB = htList.filter(h => h.kondisi === 'Rusak Berat').length
+  const useRekap = rekap.length > 0
+  const htList = useRekap
+    ? rekap.filter(r => r.kategori === 'HT')
+    : inventaris.filter(i => (i.kategori === 'HT' || i.kategori_id === 'HT'))
+  // Rekap: jumlah adalah agregat. Fallback (tanpa rekap): hitung per-unit (1 per baris).
+  const htValue = (h) => useRekap ? (h.jumlah || 0) : 1
+  const totalHT = htList.reduce((a, h) => a + htValue(h), 0)
+  const htBaik = htList.filter(h => (h.kondisi || 'Baik') === 'Baik').reduce((a, h) => a + htValue(h), 0)
+  const htRR = htList.filter(h => (h.kondisi || '') === 'Rusak Ringan').reduce((a, h) => a + htValue(h), 0)
+  const htRB = htList.filter(h => (h.kondisi || '') === 'Rusak Berat').reduce((a, h) => a + htValue(h), 0)
 
   const pinjamanAktif = pinjaman.filter(p => p.status === 'Dipinjam').length
   const pinjamanKembali = pinjaman.filter(p => p.status === 'Dikembalikan').length
@@ -57,6 +70,11 @@ export function computeStats(inventaris, pinjaman, suku_cadang, tracking) {
     pinjamanAktif, pinjamanKembali, pinjamanTerlambat, pinjamanJatuhTempo,
     scTotal, scAman, scMenipis, scTransaksiBln,
     trkTotal, trkBelum, trkProses, trkSelesai, trkBerjalan,
+    // Aliases consumed by DashboardPage and TrackingPage stat cards
+    totalAduan: trkTotal,
+    aduanOpen: trkBelum,
+    aduanProses: trkProses,
+    aduanSelesai: trkSelesai,
     pctBaik, pctRR, pctRB,
     pctSelesai, pctProses, pctBelum,
     donutHT() {

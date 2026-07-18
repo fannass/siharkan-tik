@@ -19,7 +19,11 @@ export async function createPinjaman(item) {
   const { data, error } = await supabase
     .from(TABLE)
     .insert({
-      id_ht: item.id_ht,
+      jenis_ht: item.jenis_ht,
+      id_ht: item.id_ht || null,
+      serial_number: item.serial_number || null,
+      merk: item.merk || '',
+      model: item.model || '',
       satwil_id,
       tgl_pinjam: item.tgl_pinjam,
       tgl_kembali: item.tgl_kembali,
@@ -34,6 +38,10 @@ export async function createPinjaman(item) {
 
 export async function updatePinjaman(id, updates) {
   const updateData = { ...updates }
+  if (updates.id_ht !== undefined) updateData.id_ht = updates.id_ht || null
+  if (updates.serial_number !== undefined) updateData.serial_number = updates.serial_number || null
+  if (updates.merk !== undefined) updateData.merk = updates.merk || ''
+  if (updates.model !== undefined) updateData.model = updates.model || ''
   if (updates.satwil) {
     updateData.satwil_id = await resolveSatwilId(updates.satwil)
     delete updateData.satwil
