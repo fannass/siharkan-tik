@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getSatwilList } from '../services/reference'
-import poldaLogo from '../assets/polda-diy-logo.png'
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('')
@@ -47,12 +46,6 @@ export default function DashboardPage() {
                   proses aduan perbaikan perangkat HT.
                 </p>
               </div>
-
-              <img
-                src={poldaLogo}
-                alt="Logo Polda DIY"
-                className="wh-logo"
-              />
             </div>
           </div>
         </div>
@@ -82,12 +75,6 @@ export default function DashboardPage() {
                   
                 </p>
               </div>
-
-              <img
-                src={poldaLogo}
-                alt="Logo Polda DIY"
-                className="wh-logo"
-              />
             </div>
 
             <div className="wh-meta">
