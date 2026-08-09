@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { getSatwilList } from '../services/reference'
 import poldaLogo from '../assets/polda-diy-logo.png'
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('')
+  const [satwilCount, setSatwilCount] = useState(null)
   const { userRole, session } = useAuth()
 
   const isUserRole = userRole === 'User'
@@ -25,6 +27,10 @@ export default function DashboardPage() {
         day: 'numeric',
       })
     )
+
+    getSatwilList()
+      .then(list => setSatwilCount(list.length))
+      .catch(() => setSatwilCount(null))
   }, [])
 
   return (
@@ -72,10 +78,8 @@ export default function DashboardPage() {
                 <h1>Selamat Datang</h1>
 
                 <p>
-                  Sistem Informasi Harmonisasi Peralatan Komunikasi dan
-                  Teknologi Informasi
-                  <br />
-                  Polda D. I. Yogyakarta
+                   Sistem Informasi Pemeliharaan Perbaikan dan Aset TIK Polda DIY
+                  
                 </p>
               </div>
 
@@ -101,7 +105,7 @@ export default function DashboardPage() {
 
               <div className="wh-meta-item">
                 <span className="wm-label">Satwil Terdaftar</span>
-                <span className="wm-value">--</span>
+                <span className="wm-value">{satwilCount ?? '--'}</span>
               </div>
 
               <div className="wh-meta-item">
