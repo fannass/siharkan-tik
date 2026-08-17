@@ -9,6 +9,7 @@ const pageTitles = {
   '/suku-cadang': 'Suku Cadang',
   '/sppm': 'Data SPPM',
   '/tracking': 'Tracking Perbaikan',
+  '/laporan': 'Laporan Bulanan',
   '/kontak-admin': 'Kontak Admin',
 }
 

@@ -15,6 +15,23 @@ export async function getAllPinjaman() {
 }
 
 export async function createPinjaman(item) {
+  if (item.mode === 'batch') {
+    const { data, error } = await supabase.rpc('create_pinjaman_batch', {
+      p_batch_id: item.batch_id,
+      p_jumlah: Number(item.jumlah),
+      p_satwil_id: await resolveSatwilId(item.satwil),
+      p_tgl_pinjam: item.tgl_pinjam,
+      p_tgl_kembali: item.tgl_kembali,
+      p_keterangan: item.keterangan || '',
+      p_jenis_ht: item.jenis_ht || '',
+      p_merk: item.merk || '',
+      p_model: item.model || '',
+      p_nomor_transaksi: item.nomor_transaksi || null
+    })
+    if (error) throw error
+    return data
+  }
+
   const satwil_id = await resolveSatwilId(item.satwil)
   const { data, error } = await supabase
     .from(TABLE)
@@ -34,6 +51,22 @@ export async function createPinjaman(item) {
     .select()
   if (error) throw error
   return data?.[0]
+}
+
+export async function returnPinjaman(id, item) {
+  if (item.batch_id) {
+    const { data, error } = await supabase.rpc('return_pinjaman_batch', {
+      p_pinjaman_id: id,
+      p_jumlah: Number(item.jumlah)
+    })
+    if (error) throw error
+    return data
+  }
+  return updatePinjaman(id, {
+    is_returned: true,
+    tgl_dikembalikan: new Date().toISOString(),
+    status: 'Dikembalikan'
+  })
 }
 
 export async function updatePinjaman(id, updates) {
@@ -56,7 +89,12 @@ export async function updatePinjaman(id, updates) {
   return data?.[0]
 }
 
-export async function deletePinjaman(id) {
+export async function deletePinjaman(id, batchId = null) {
+  if (batchId) {
+    const { data, error } = await supabase.rpc('delete_pinjaman_batch', { p_pinjaman_id: id })
+    if (error) throw error
+    return data
+  }
   const { error } = await supabase.from(TABLE).delete().eq('id', id)
   if (error) throw error
 }

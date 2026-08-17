@@ -13,6 +13,7 @@ const SukuCadangPage = lazy(() => import('../pages/SukuCadangPage'))
 const SPPMPage = lazy(() => import('../pages/SPPMPage'))
 const TrackingPage = lazy(() => import('../pages/TrackingPage'))
 const KontakAdminPage = lazy(() => import('../pages/KontakAdminPage'))
+const LaporanPage = lazy(() => import('../pages/LaporanPage'))
 
 function LazyLoad({ children }) {
   return <Suspense fallback={<LoadingSpinner text="Memuat halaman..." />}>{children}</Suspense>
@@ -32,6 +33,7 @@ export default function AppRoutes() {
             <Route path="/suku-cadang" element={<LazyLoad><SukuCadangPage /></LazyLoad>} />
             <Route path="/sppm" element={<LazyLoad><SPPMPage /></LazyLoad>} />
             <Route path="/tracking" element={<LazyLoad><TrackingPage /></LazyLoad>} />
+            <Route path="/laporan" element={<LazyLoad><LaporanPage /></LazyLoad>} />
             <Route path="/kontak-admin" element={<LazyLoad><KontakAdminPage /></LazyLoad>} />
           </Route>
         </Route>

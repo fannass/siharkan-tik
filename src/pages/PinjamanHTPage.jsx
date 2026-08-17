@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { getAllPinjaman, createPinjaman, deletePinjaman, updatePinjaman } from '../services/pinjaman'
+import { getAllPinjaman, createPinjaman, deletePinjaman, updatePinjaman, returnPinjaman } from '../services/pinjaman'
+import { getAllInventarisBatch } from '../services/inventarisBatch'
 import { getAllInventaris } from '../services/inventaris'
 import { getSatwilList } from '../services/reference'
 import { uploadAndValidate } from '../services/storageUpload'
@@ -9,12 +10,12 @@ import { useExport } from '../hooks/useExport'
 import { SearchBox, Table, Pagination, StatCard, Badge, IconButton, ToastContainer, ConfirmModal, LoadingSpinner, Modal } from '../components/ui'
 
 const statusVariant = (s) => s === 'Dipinjam' ? 'blue' : s === 'Terlambat' ? 'red' : s === 'Jatuh Tempo' ? 'amber' : 'green'
-const emptyForm = { jenis_ht: '', id_ht: '', serial_number: '', merk: '', model: '', satwil: '', tgl_pinjam: '', tgl_kembali: '', keterangan: '', file: null }
+const emptyForm = { mode: 'unit', jenis_ht: '', id_ht: '', batch_id: '', serial_number: '', merk: '', model: '', jumlah: 1, satwil: '', tgl_pinjam: '', tgl_kembali: '', keterangan: '', file: null }
 const jenisHTOptions = ['APX 1000', 'APX 1000i', 'Hytera', 'Tait']
 
 // Hitung status dinamis dari is_returned + tanggal kembali
-function computeActualStatus(isReturned, tglKembali) {
-  if (isReturned) return 'Dikembalikan'
+function computeActualStatus(isReturned, tglKembali, jumlah = 1, jumlahDikembalikan = 0) {
+  if (isReturned || Number(jumlahDikembalikan) >= Number(jumlah)) return 'Dikembalikan'
   if (!tglKembali) return 'Dipinjam'
 
   const [th, bl, tg] = String(tglKembali).split('T')[0].split('-').map(Number)
@@ -31,6 +32,7 @@ function computeActualStatus(isReturned, tglKembali) {
 export default function PinjamanHTPage() {
   const [pinjamanData, setPinjamanData] = useState([])
   const [htList, setHtList] = useState([])
+  const [batchList, setBatchList] = useState([])
   const [satwilList, setSatwilList] = useState([])
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
@@ -48,6 +50,7 @@ export default function PinjamanHTPage() {
   const [deleting, setDeleting] = useState(false)
 
   const [returnTarget, setReturnTarget] = useState(null)
+  const [returnJumlah, setReturnJumlah] = useState(1)
   const [returning, setReturning] = useState(false)
 
   const [showPreview, setShowPreview] = useState(false)
@@ -66,18 +69,15 @@ export default function PinjamanHTPage() {
     if (!returnTarget) return
     setReturning(true)
     try {
-      await updatePinjaman(returnTarget.id, {
-        is_returned: true,
-        tgl_dikembalikan: new Date().toISOString(),
-        status: 'Dikembalikan'
-      })
+      await returnPinjaman(returnTarget.id, { batch_id: returnTarget.batch_id, jumlah: returnTarget.batch_id ? returnJumlah : 1 })
       success(`HT ${returnTarget.jenis_ht} berhasil ditandai dikembalikan`)
       setReturnTarget(null)
-      const [pinjaman, inventaris, satwil] = await Promise.all([
-        getAllPinjaman(), getAllInventaris(), getSatwilList()
+      const [pinjaman, inventaris, satwil, batches] = await Promise.all([
+        getAllPinjaman(), getAllInventaris(), getSatwilList(), getAllInventarisBatch()
       ])
       setPinjamanData(pinjaman)
       setHtList(inventaris.filter(i => i.kategori === 'HT'))
+      setBatchList(batches.filter(i => i.kategori === 'HT'))
       setSatwilList(satwil)
       setStats(computePinjamanStats(pinjaman))
     } catch (err) {
@@ -92,12 +92,13 @@ export default function PinjamanHTPage() {
     async function load() {
       try {
         setLoading(true)
-        const [pinjaman, inventaris, satwil] = await Promise.all([
-          getAllPinjaman(), getAllInventaris(), getSatwilList()
+        const [pinjaman, inventaris, satwil, batches] = await Promise.all([
+          getAllPinjaman(), getAllInventaris(), getSatwilList(), getAllInventarisBatch()
         ])
         if (cancelled) return
         setPinjamanData(pinjaman)
         setHtList(inventaris.filter(i => i.kategori === 'HT'))
+        setBatchList(batches.filter(i => i.kategori === 'HT'))
         setSatwilList(satwil)
         setStats(computePinjamanStats(pinjaman))
       } catch (err) {
@@ -114,7 +115,7 @@ export default function PinjamanHTPage() {
   const pinjamanWithStatus = useMemo(() =>
     pinjamanData.map(p => ({
       ...p,
-      statusComputed: computeActualStatus(p.is_returned, p.tgl_kembali)
+      statusComputed: computeActualStatus(p.is_returned, p.tgl_kembali, p.jumlah, p.jumlah_dikembalikan)
     })), [pinjamanData])
 
   const { searchTerm, setSearchTerm, filtered } = useSearch(pinjamanWithStatus, ['jenis_ht', 'satwil', 'statusComputed'])
@@ -136,6 +137,9 @@ export default function PinjamanHTPage() {
 
   function validate() {
     const errs = {}
+    if (form.mode === 'batch' && !form.batch_id) errs.batch_id = 'Pilih batch HT'
+    if (form.mode === 'batch' && (!Number.isInteger(Number(form.jumlah)) || Number(form.jumlah) <= 0)) errs.jumlah = 'Jumlah harus lebih dari nol'
+    if (form.mode === 'batch' && Number(form.jumlah) > Number(batchList.find(b => b.id === form.batch_id)?.jumlah_tersedia || 0)) errs.jumlah = 'Jumlah melebihi stok tersedia'
     if (!form.jenis_ht) errs.jenis_ht = 'Pilih Jenis HT'
     if (!form.satwil) errs.satwil = 'Pilih Satwil'
     if (!form.tgl_pinjam) errs.tgl_pinjam = 'Tanggal pinjam harus diisi'
@@ -168,11 +172,12 @@ export default function PinjamanHTPage() {
       setShowForm(false)
       setEditingId(null)
       setForm(emptyForm)
-      const [pinjaman, inventaris, satwil] = await Promise.all([
-        getAllPinjaman(), getAllInventaris(), getSatwilList()
+      const [pinjaman, inventaris, satwil, batches] = await Promise.all([
+        getAllPinjaman(), getAllInventaris(), getSatwilList(), getAllInventarisBatch()
       ])
       setPinjamanData(pinjaman)
       setHtList(inventaris.filter(i => i.kategori === 'HT'))
+      setBatchList(batches.filter(i => i.kategori === 'HT'))
       setSatwilList(satwil)
       setStats(computePinjamanStats(pinjaman))
     } catch (err) {
@@ -186,14 +191,15 @@ export default function PinjamanHTPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await deletePinjaman(deleteTarget.id)
+      await deletePinjaman(deleteTarget.id, deleteTarget.batch_id)
       success('Data pinjaman berhasil dihapus')
       setDeleteTarget(null)
-      const [pinjaman, inventaris, satwil] = await Promise.all([
-        getAllPinjaman(), getAllInventaris(), getSatwilList()
+      const [pinjaman, inventaris, satwil, batches] = await Promise.all([
+        getAllPinjaman(), getAllInventaris(), getSatwilList(), getAllInventarisBatch()
       ])
       setPinjamanData(pinjaman)
       setHtList(inventaris.filter(i => i.kategori === 'HT'))
+      setBatchList(batches.filter(i => i.kategori === 'HT'))
       setSatwilList(satwil)
       setStats(computePinjamanStats(pinjaman))
     } catch (err) {
@@ -209,6 +215,7 @@ export default function PinjamanHTPage() {
     { label: 'No. Seri', key: 'serial_number' },
     { label: 'Merk', key: 'merk' },
     { label: 'Model', key: 'model' },
+    { label: 'Jumlah', render: (i) => i.batch_id ? `${i.jumlah_dikembalikan || 0}/${i.jumlah}` : '1' },
     { label: 'Satwil Peminjam', key: 'satwil' },
     { label: 'Tgl Pinjam', key: 'tgl_pinjam' },
     { label: 'Tgl Kembali', key: 'tgl_kembali' },
@@ -222,7 +229,10 @@ export default function PinjamanHTPage() {
       } catch(e) { return '' }
     }},
     { label: 'Keterangan', render: (i) => i.keterangan || '', cellClass: 'cell-muted' },
-    { label: 'Status', render: (i) => <Badge variant={statusVariant(computeActualStatus(i.is_returned, i.tgl_kembali))}>{computeActualStatus(i.is_returned, i.tgl_kembali)}</Badge> },
+    { label: 'Status', render: (i) => {
+      const status = Number(i.jumlah_dikembalikan || 0) > 0 && !i.is_returned ? 'Dikembalikan Sebagian' : computeActualStatus(i.is_returned, i.tgl_kembali, i.jumlah, i.jumlah_dikembalikan)
+      return <Badge variant={statusVariant(status)}>{status}</Badge>
+    } },
   ]
 
   const renderActions = (item) => (
@@ -232,7 +242,7 @@ export default function PinjamanHTPage() {
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7"/></svg>} 
           className="btn-icon" 
           style={{ color: 'var(--green)' }}
-          onClick={() => setReturnTarget(item)} 
+           onClick={() => { setReturnTarget(item); setReturnJumlah(Math.max(1, Number(item.jumlah || 1) - Number(item.jumlah_dikembalikan || 0))) }}
           title="Tandai Dikembalikan"
         />
       )}
@@ -252,7 +262,17 @@ export default function PinjamanHTPage() {
       <ToastContainer toasts={toasts} />
       <ConfirmModal open={!!deleteTarget} title="Hapus Data Pinjaman" message={`Yakin ingin menghapus pinjaman ${deleteTarget?.jenis_ht}?`} confirmLabel="Hapus" confirmVariant="danger" onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
 
-      <ConfirmModal open={!!returnTarget} title="Tandai Dikembalikan" message={`Konfirmasi bahwa HT ${returnTarget?.jenis_ht} sudah dikembalikan oleh ${returnTarget?.satwil}?`} confirmLabel="Ya, Kembalikan" confirmVariant="primary" onConfirm={handleReturn} onCancel={() => setReturnTarget(null)} loading={returning} />
+      <ConfirmModal open={!!returnTarget && !returnTarget.batch_id} title="Tandai Dikembalikan" message={`Konfirmasi bahwa HT ${returnTarget?.jenis_ht} sudah dikembalikan oleh ${returnTarget?.satwil}?`} confirmLabel="Ya, Kembalikan" confirmVariant="primary" onConfirm={handleReturn} onCancel={() => setReturnTarget(null)} loading={returning} />
+      <Modal open={!!returnTarget?.batch_id} title="Pengembalian Batch" onClose={() => setReturnTarget(null)}>
+        <div className="field">
+          <label>Jumlah dikembalikan (sisa: {Math.max(0, Number(returnTarget?.jumlah || 0) - Number(returnTarget?.jumlah_dikembalikan || 0))})</label>
+          <input type="number" min="1" max={Math.max(0, Number(returnTarget?.jumlah || 0) - Number(returnTarget?.jumlah_dikembalikan || 0))} value={returnJumlah} onChange={e => setReturnJumlah(e.target.value)} />
+        </div>
+        <div className="form-actions" style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 16 }}>
+          <button type="button" className="btn" onClick={() => setReturnTarget(null)} disabled={returning}>Batal</button>
+          <button type="button" className="btn btn-primary" onClick={handleReturn} disabled={returning || Number(returnJumlah) <= 0 || Number(returnJumlah) > Number(returnTarget?.jumlah || 0) - Number(returnTarget?.jumlah_dikembalikan || 0)}>{returning ? 'Memproses...' : 'Kembalikan'}</button>
+        </div>
+      </Modal>
 
       <div className="page-head">
         <div><h1>Pinjam Pakai HT</h1><p>Catat dan pantau peminjaman HT oleh Satwil jajaran Polda DIY</p></div>
@@ -290,8 +310,28 @@ export default function PinjamanHTPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="field">
+              <label>Mode Peminjaman</label>
+              <select value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value, batch_id: '', jumlah: 1 })} disabled={!!editingId}>
+                <option value="unit">Unit legacy</option>
+                <option value="batch">Batch berdasarkan jumlah</option>
+              </select>
+            </div>
+            {form.mode === 'batch' && <div className="field full">
+              <label>Batch HT <span className="req">*</span></label>
+              <select value={form.batch_id} onChange={e => { const b = batchList.find(item => item.id === e.target.value); setForm({ ...form, batch_id: e.target.value, jenis_ht: b?.nama || '', merk: b?.merk || '', model: b?.model || '' }) }}>
+                <option value="">Pilih batch HT</option>
+                {batchList.map(b => <option key={b.id} value={b.id}>{b.nama} - tersedia {b.jumlah_tersedia} {b.satuan}</option>)}
+              </select>
+              {formErrors.batch_id && <div className="form-error">{formErrors.batch_id}</div>}
+            </div>}
+            {form.mode === 'batch' && <div className="field">
+              <label>Jumlah</label>
+              <input type="number" min="1" value={form.jumlah} onChange={e => setForm({ ...form, jumlah: e.target.value })} />
+              {formErrors.jumlah && <div className="form-error">{formErrors.jumlah}</div>}
+            </div>}
+            <div className="field">
               <label>Jenis HT <span className="req">*</span></label>
-              <select value={form.jenis_ht} onChange={e => setForm({ ...form, jenis_ht: e.target.value })}>
+              <select value={form.jenis_ht} onChange={e => setForm({ ...form, jenis_ht: e.target.value })} disabled={form.mode === 'batch'}>
                 <option value="">Pilih Jenis HT</option>
                 {jenisHTOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
@@ -389,11 +429,12 @@ function computePinjamanStats(pinjaman) {
   let pinjamanJatuhTempo = 0
 
   pinjaman.forEach(p => {
-    const sts = computeActualStatus(p.is_returned, p.tgl_kembali)
-    if (sts === 'Dikembalikan') pinjamanKembali++
-    else if (sts === 'Terlambat') pinjamanTerlambat++
-    else if (sts === 'Jatuh Tempo') pinjamanJatuhTempo++
-    else if (sts === 'Dipinjam') pinjamanAktif++
+    const sts = computeActualStatus(p.is_returned, p.tgl_kembali, p.jumlah, p.jumlah_dikembalikan)
+    const remaining = Math.max(0, Number(p.jumlah || 1) - Number(p.jumlah_dikembalikan || 0))
+    if (sts === 'Dikembalikan') pinjamanKembali += Number(p.jumlah || 1)
+    else if (sts === 'Terlambat') pinjamanTerlambat += remaining
+    else if (sts === 'Jatuh Tempo') pinjamanJatuhTempo += remaining
+    else if (sts === 'Dipinjam') pinjamanAktif += remaining
   })
 
   return { pinjamanAktif, pinjamanKembali, pinjamanTerlambat, pinjamanJatuhTempo }

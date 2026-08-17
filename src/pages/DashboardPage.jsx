@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getSatwilList } from '../services/reference'
+import { getDashboardData } from '../services/dashboard'
+import { StatCard, LoadingSpinner } from '../components/ui'
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('')
   const [satwilCount, setSatwilCount] = useState(null)
+  const [dashboard, setDashboard] = useState(null)
   const { userRole, session } = useAuth()
 
   const isUserRole = userRole === 'User'
@@ -27,8 +30,8 @@ export default function DashboardPage() {
       })
     )
 
-    getSatwilList()
-      .then(list => setSatwilCount(list.length))
+    Promise.all([getSatwilList(), getDashboardData()])
+      .then(([list, data]) => { setSatwilCount(list.length); setDashboard(data) })
       .catch(() => setSatwilCount(null))
   }, [])
 
@@ -60,6 +63,21 @@ export default function DashboardPage() {
 
             <div className="head-actions"></div>
           </div>
+
+          {dashboard ? (
+            <>
+              <div className="stat-grid" style={{ marginBottom: 20 }}>
+                <StatCard label="Total Alat" value={dashboard.totalAlat} />
+                <StatCard label="Tersedia" value={dashboard.tersedia} />
+                <StatCard label="Dipinjam" value={dashboard.dipinjam} />
+                <StatCard label="Rusak" value={dashboard.rusak} />
+                <StatCard label="Hilang" value={dashboard.hilang} />
+              </div>
+              <div className="kat-grid" style={{ marginBottom: 20 }}>
+                {Object.entries(dashboard.byKategori).map(([label, value]) => <StatCard key={label} label={label} value={value} />)}
+              </div>
+            </>
+          ) : <LoadingSpinner text="Memuat statistik inventaris..." />}
 
           <div className="welcome-hero">
             <div className="wh-eyebrow">

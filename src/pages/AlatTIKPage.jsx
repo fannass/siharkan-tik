@@ -1,321 +1,144 @@
-import { useState, useEffect, useMemo } from 'react'
-import { getAllInventaris, createInventaris, updateInventaris, deleteInventaris } from '../services/inventaris'
-import { getSatwilList, getKategoriList } from '../services/reference'
-import { useSearch, usePagination } from '../hooks'
+import { useEffect, useMemo, useState } from 'react'
+import { createInventaris, deleteInventaris, getAllInventaris, updateInventaris } from '../services/inventaris'
+import { createInventarisBatch, getAllInventarisBatch } from '../services/inventarisBatch'
+import { getKategoriList, getSatwilList } from '../services/reference'
+import { usePagination, useSearch } from '../hooks'
 import { useToast } from '../hooks/useToast'
-import { useExport } from '../hooks/useExport'
-import { SearchBox, Select, Table, Pagination, KategoriCard, Badge, TypeTag, IconButton, ToastContainer, ConfirmModal, LoadingSpinner, Modal } from '../components/ui'
+import { Badge, ConfirmModal, IconButton, KategoriCard, LoadingSpinner, Modal, Pagination, SearchBox, Select, Table, ToastContainer, TypeTag } from '../components/ui'
 import { formatTanggal } from '../utils/format'
 
 const kondisiOptions = ['Baik', 'Rusak Ringan', 'Rusak Berat']
-const kondisiVariant = (k) => k === 'Baik' ? 'green' : k === 'Rusak Ringan' ? 'amber' : 'red'
-const emptyForm = { id: '', nama: '', merk: '', model: '', serial_number: '', kategori: 'HT', kondisi: 'Baik', lokasi: '', tgl: '' }
-
-const KATEGORI_PREFIX = {
-  HT: 'HT-',
-  Tower: 'TWR-',
-  Repeater: 'RPT-',
-  Ransus: 'RNS-',
-  Bodyworn: 'BWC-',
-  'Command Center': 'CMD-',
-  'Call Center': 'CCT-',
-  Drone: 'DRN-'
-}
+const emptyUnit = { id: '', nama: '', merk: '', model: '', serial_number: '', kategori: 'HT', kondisi: 'Baik', lokasi: '', tgl: '' }
+const emptyBatch = { nama: '', merk: '', model: '', kategori: 'HT', kondisi: 'Baik', lokasi: '', tanggal_masuk: '', jumlah: '', satuan: 'unit', nomor_batch: '', sumber_pengadaan: '', keterangan: '' }
+const prefix = { HT: 'HT-', Tower: 'TWR-', Repeater: 'RPT-', Ransus: 'RNS-', Bodyworn: 'BWC-', 'Command Center': 'CMD-', 'Call Center': 'CCT-', Drone: 'DRN-' }
+const kondisiVariant = kondisi => kondisi === 'Baik' ? 'green' : kondisi === 'Rusak Ringan' ? 'amber' : 'red'
 
 export default function AlatTIKPage() {
-  const [inventaris, setInventaris] = useState([])
-  const [satwilList, setSatwilList] = useState([])
-  const [kategoriList, setKategoriList] = useState([])
-  const [kategoriStats, setKategoriStats] = useState([])
+  const [units, setUnits] = useState([])
+  const [batches, setBatches] = useState([])
+  const [satwil, setSatwil] = useState([])
+  const [kategori, setKategori] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const { toasts, success, error } = useToast()
-  const { handleExport } = useExport()
-
+  const [mode, setMode] = useState('batch')
+  const [unitForm, setUnitForm] = useState(emptyUnit)
+  const [batchForm, setBatchForm] = useState(emptyBatch)
+  const [idNumber, setIdNumber] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [filterKategori, setFilterKategori] = useState('')
   const [filterKondisi, setFilterKondisi] = useState('')
   const [filterLokasi, setFilterLokasi] = useState('')
+  const { toasts, success, error } = useToast()
 
-  const [form, setForm] = useState(emptyForm)
-  const [editingId, setEditingId] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [formErrors, setFormErrors] = useState({})
-  const [idNumber, setIdNumber] = useState('')
-
-  useEffect(() => {
-    if (!editingId && form.kategori && KATEGORI_PREFIX[form.kategori]) {
-      setForm(prev => ({ ...prev, id: KATEGORI_PREFIX[form.kategori] + idNumber }))
+  const load = async () => {
+    try {
+      setLoading(true)
+      const [unitRows, batchRows, satwilRows, kategoriRows] = await Promise.all([getAllInventaris(), getAllInventarisBatch(), getSatwilList(), getKategoriList()])
+      setUnits(unitRows)
+      setBatches(batchRows)
+      setSatwil(satwilRows)
+      setKategori(kategoriRows)
+    } catch {
+      error('Gagal memuat data inventaris')
+    } finally {
+      setLoading(false)
     }
-  }, [form.kategori, idNumber, editingId])
+  }
 
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting, setDeleting] = useState(false)
-
+  useEffect(() => { load() }, [])
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        setLoading(true)
-        const [data, satwil, kategori] = await Promise.all([
-          getAllInventaris(),
-          getSatwilList(),
-          getKategoriList()
-        ])
-        if (cancelled) return
-        setInventaris(data)
-        setSatwilList(satwil)
-        setKategoriList(kategori)
-      } catch (err) {
-        if (!cancelled) error('Gagal memuat data inventaris')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    if (!editing) setUnitForm(current => ({ ...current, id: `${prefix[current.kategori] || ''}${idNumber}` }))
+  }, [idNumber, editing, unitForm.kategori])
 
-  const filteredByCategory = useMemo(() => {
-    let result = [...inventaris]
-    if (filterKategori) result = result.filter(i => i.kategori === filterKategori)
-    if (filterKondisi) result = result.filter(i => i.kondisi === filterKondisi)
-    if (filterLokasi) result = result.filter(i => i.lokasi === filterLokasi)
-    return result
-  }, [inventaris, filterKategori, filterKondisi, filterLokasi])
+  const data = useMemo(() => [
+    ...units.map(item => ({ ...item, recordType: 'Unit', jumlah_awal: 1, jumlah_tersedia: item.kondisi === 'Baik' ? 1 : 0, tanggal: item.tgl, nomor: item.serial_number || item.id })),
+    ...batches.map(item => ({ ...item, id: item.id, recordType: 'Batch', tanggal: item.tanggal_masuk, nomor: item.nomor_batch || '-' }))
+  ].filter(item => (!filterKategori || item.kategori === filterKategori) && (!filterKondisi || item.kondisi === filterKondisi) && (!filterLokasi || item.lokasi === filterLokasi)), [units, batches, filterKategori, filterKondisi, filterLokasi])
 
-  useEffect(() => {
-    const katStats = kategoriList.map(kat => {
-      const items = inventaris.filter(i => i.kategori === kat)
-      return { kategori: kat, label: kat, value: items.length, warna: kat === 'HT' ? 'var(--polri-gold-bg)' : 'var(--blue-bg)', warnaBorder: kat === 'HT' ? 'var(--polri-gold-2)' : 'var(--blue)' }
-    })
-    setKategoriStats(katStats)
-  }, [inventaris, kategoriList])
+  const kategoriStats = useMemo(() => kategori.map(name => ({ label: name, value: data.filter(item => item.kategori === name).reduce((total, item) => total + Number(item.jumlah_awal || 1), 0) })), [data, kategori])
+  const { searchTerm, setSearchTerm, filtered } = useSearch(data, ['nama', 'merk', 'model', 'lokasi', 'nomor'])
+  const { currentPage, setCurrentPage, paginatedData, totalPages } = usePagination(filtered, 10)
 
-  const { searchTerm, setSearchTerm, filtered: filteredData } = useSearch(filteredByCategory, ['nama', 'merk', 'lokasi'])
-  const { currentPage, setCurrentPage, paginatedData, totalPages } = usePagination(filteredData, 10)
-
-  function openCreateForm() {
-    setForm(emptyForm)
-    setEditingId(null)
-    setFormErrors({})
+  const openCreate = () => {
+    setEditing(null)
+    setMode('batch')
+    setUnitForm(emptyUnit)
+    setBatchForm(emptyBatch)
     setIdNumber('')
     setShowForm(true)
   }
-
-  function openEditForm(item) {
-    const prefix = KATEGORI_PREFIX[item.kategori] || ''
-    const number = item.id?.startsWith(prefix) ? item.id.slice(prefix.length) : ''
-    setForm({ id: item.id, nama: item.nama || '', merk: item.merk || '', model: item.model || '', serial_number: item.serial_number || '', kategori: item.kategori, kondisi: item.kondisi, lokasi: item.lokasi, tgl: item.tgl || '' })
-    setEditingId(item.id)
-    setFormErrors({})
-    setIdNumber(number)
+  const openEdit = item => {
+    if (item.recordType === 'Batch') return
+    const value = item.id.startsWith(prefix[item.kategori] || '') ? item.id.slice((prefix[item.kategori] || '').length) : ''
+    setMode('unit')
+    setEditing(item.id)
+    setIdNumber(value)
+    setUnitForm({ id: item.id, nama: item.nama || '', merk: item.merk || '', model: item.model || '', serial_number: item.serial_number || '', kategori: item.kategori, kondisi: item.kondisi, lokasi: item.lokasi, tgl: item.tgl || '' })
     setShowForm(true)
   }
-
-  function validate() {
-    const errs = {}
-    if (!editingId && !idNumber.trim()) errs.id = 'ID alat harus diisi'
-    if (form.kategori === 'HT' && !form.merk.trim()) errs.merk = 'Merk harus diisi untuk HT'
-    if (form.kategori !== 'HT' && !form.nama.trim()) errs.nama = 'Nama barang harus diisi'
-    if (!form.lokasi) errs.lokasi = 'Lokasi harus dipilih'
-    if (!form.tgl) errs.tgl = 'Tanggal harus diisi'
-    setFormErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!validate()) return
+  const submit = async event => {
+    event.preventDefault()
+    const current = mode === 'unit' ? unitForm : batchForm
+    if (!current.lokasi || !(mode === 'unit' ? current.tgl : current.tanggal_masuk) || (mode === 'batch' && (!current.nama.trim() || Number(current.jumlah) <= 0)) || (mode === 'unit' && (!current.id.trim() || !current.nama.trim()))) {
+      error('Lengkapi data wajib dan jumlah harus lebih dari nol')
+      return
+    }
     setSubmitting(true)
     try {
-      if (editingId) {
-        await updateInventaris(editingId, form)
-        success('Data inventaris berhasil diperbarui')
+      if (mode === 'unit') {
+        if (editing) await updateInventaris(editing, unitForm)
+        else await createInventaris(unitForm)
       } else {
-        await createInventaris(form)
-        success('Data inventaris berhasil ditambahkan')
+        const kategori_id = kategori.find(name => name === batchForm.kategori)
+        const lokasi_id = satwil.find(name => name === batchForm.lokasi)
+        const kategoriRows = await getKategoriList()
+        const satwilRows = await getSatwilList()
+        await createInventarisBatch({ ...batchForm, kategori_id: kategoriRows.find(name => name === kategori_id) ? await resolveReference('kategori', batchForm.kategori) : null, lokasi_id: satwilRows.find(name => name === lokasi_id) ? await resolveReference('satwil', batchForm.lokasi) : null })
       }
+      success(mode === 'batch' ? 'Batch inventaris berhasil ditambahkan' : 'Data unit berhasil disimpan')
       setShowForm(false)
-      setForm(emptyForm)
-      setEditingId(null)
-      const [data, satwil, kategori] = await Promise.all([
-        getAllInventaris(), getSatwilList(), getKategoriList()
-      ])
-      setInventaris(data)
-      setSatwilList(satwil)
-      setKategoriList(kategori)
+      await load()
     } catch (err) {
-      error('Gagal menyimpan data')
-    } finally {
-      setSubmitting(false)
-    }
+      error(err.message || 'Gagal menyimpan data')
+    } finally { setSubmitting(false) }
   }
-
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
+  const remove = async () => {
     try {
+      if (deleteTarget.recordType !== 'Unit') return
       await deleteInventaris(deleteTarget.id)
-      success('Data inventaris berhasil dihapus')
+      success('Data unit berhasil dihapus')
       setDeleteTarget(null)
-      const [data, satwil, kategori] = await Promise.all([
-        getAllInventaris(), getSatwilList(), getKategoriList()
-      ])
-      setInventaris(data)
-      setSatwilList(satwil)
-      setKategoriList(kategori)
-    } catch (err) {
-      error('Gagal menghapus data')
-    } finally {
-      setDeleting(false)
-    }
+      await load()
+    } catch { error('Gagal menghapus data') }
   }
-
   const columns = [
-    { label: 'No / ID', key: 'id', cellClass: 'cell-strong' },
+    { label: 'Tipe', render: item => <Badge variant={item.recordType === 'Batch' ? 'blue' : 'gray'}>{item.recordType}</Badge> },
     { label: 'Nama Barang', key: 'nama', cellClass: 'cell-strong' },
-    { label: 'Merk', key: 'merk' },
-    { label: 'Model', key: 'model' },
-    { label: 'No. Seri', key: 'serial_number' },
-    { label: 'Jenis', render: (i) => <TypeTag type={i.kategori.toLowerCase()}>{i.kategori}</TypeTag> },
-    { label: 'Kondisi', render: (i) => <Badge variant={kondisiVariant(i.kondisi)}>{i.kondisi}</Badge> },
+    { label: 'Merk / Model', render: item => [item.merk, item.model].filter(Boolean).join(' / ') || '-' },
+    { label: 'No. Seri / Batch', key: 'nomor' },
+    { label: 'Jenis', render: item => <TypeTag type={item.kategori.toLowerCase()}>{item.kategori}</TypeTag> },
+    { label: 'Total', render: item => item.jumlah_awal || 1 },
+    { label: 'Tersedia', render: item => item.jumlah_tersedia ?? 0 },
+    { label: 'Dipinjam', render: item => item.jumlah_dipinjam || 0 },
+    { label: 'Kondisi', render: item => <Badge variant={kondisiVariant(item.kondisi)}>{item.kondisi}</Badge> },
     { label: 'Lokasi', key: 'lokasi' },
-    { label: 'Tgl Masuk', render: (i) => formatTanggal(i.tgl) },
+    { label: 'Tgl Masuk', render: item => formatTanggal(item.tanggal) }
   ]
 
-  const renderActions = (item) => (
-    <div className="row-actions">
-      <IconButton icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>} className="btn-icon" onClick={() => openEditForm(item)} />
-      <IconButton icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>} className="btn-icon" onClick={() => setDeleteTarget(item)} />
-    </div>
-  )
-
-  return (
-    <div>
-      <ToastContainer toasts={toasts} />
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Hapus Data Inventaris"
-        message={`Yakin ingin menghapus "${deleteTarget?.nama || deleteTarget?.id}"?`}
-        confirmLabel="Hapus"
-        confirmVariant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-        loading={deleting}
-      />
-
-      <div className="page-head">
-        <div><h1>Data Alat TIK</h1><p>Inventaris seluruh perangkat Teknologi Informasi dan Komunikasi Polda DIY.</p></div>
-        <div className="head-actions">
-          <button className="btn" onClick={() => {
-            const result = handleExport(filteredData, 'inventaris.csv')
-            if (result.success) success(result.message)
-            else error(result.message)
-          }}>&#8595; Export</button>
-          <button className="btn btn-primary" onClick={openCreateForm}>+ Tambah Data</button>
-        </div>
-      </div>
-
-      <div className="kat-grid">
-        {kategoriStats.map((s, i) => <KategoriCard key={i} label={s.label} value={s.value} variant={s.warnaBorder} />)}
-      </div>
-
-      <div className="card">
-        <div className="toolbar">
-          <SearchBox placeholder="Cari nama barang, merk, atau lokasi..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
-          <Select className="filter-btn" value={filterKategori} onChange={e => setFilterKategori(e.target.value)} placeholder="Semua Jenis Alat" options={kategoriList} style={{ minWidth: 150 }} />
-          <Select className="filter-btn" value={filterKondisi} onChange={e => setFilterKondisi(e.target.value)} placeholder="Semua Kondisi" options={kondisiOptions} style={{ minWidth: 140 }} />
-          <Select className="filter-btn" value={filterLokasi} onChange={e => setFilterLokasi(e.target.value)} placeholder="Semua Lokasi" options={satwilList} style={{ minWidth: 170 }} />
-        </div>
-
-        {loading ? <LoadingSpinner text="Memuat data..." /> : (
-          <>
-            <Table columns={columns} data={paginatedData} emptyMessage="Tidak ada data yang sesuai dengan filter"
-              actions={renderActions} id="tabel-alat" />
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={10} totalItems={filteredData.length} />
-          </>
-        )}
-      </div>
-      <Modal open={showForm} title={`${editingId ? 'Edit' : 'Tambah'} Data Alat TIK`} onClose={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); setIdNumber('') }} size="large">
-        <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="field">
-              <label>Jenis Alat <span className="req">*</span></label>
-              <select value={form.kategori} onChange={e => { setForm({ ...form, kategori: e.target.value }); setIdNumber('') }}>
-                {kategoriList.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Kondisi <span className="req">*</span></label>
-              <select value={form.kondisi} onChange={e => setForm({ ...form, kondisi: e.target.value })}>
-                {kondisiOptions.map(k => <option key={k}>{k}</option>)}
-              </select>
-            </div>
-            {!editingId && (
-              <div className="field full" style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
-                <label style={{ width: '100%' }}>ID Alat <span className="req">*</span></label>
-                <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', width: '100%' }}>
-                  <span style={{ padding: '8px 12px', background: 'var(--bg)', color: 'var(--muted)', fontWeight: 600, fontSize: 14, borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
-                    {KATEGORI_PREFIX[form.kategori] || '??-'}
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Contoh: 016"
-                    value={idNumber}
-                    onChange={e => setIdNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                    style={{ flex: 1, border: 'none', borderRadius: 0, outline: 'none', padding: '8px 12px', fontSize: 14 }}
-                    autoComplete="off"
-                  />
-                </div>
-                {formErrors.id && <div className="form-error">{formErrors.id}</div>}
-              </div>
-            )}
-            {form.kategori !== 'HT' ? (
-              <div className="field full">
-                <label>Nama Barang <span className="req">*</span></label>
-                <input type="text" placeholder="Contoh: Tower BTS 42 Meter" value={form.nama} onChange={e => setForm({ ...form, nama: e.target.value })} />
-                {formErrors.nama && <div className="form-error">{formErrors.nama}</div>}
-              </div>
-            ) : (
-              <div className="field full" style={{ display: 'none' }} />
-            )}
-            {form.kategori === 'HT' ? (
-              <div className="field">
-                <label>Merk <span className="req">*</span></label>
-                <input type="text" placeholder="Contoh: Motorola, Hytera" value={form.merk} onChange={e => setForm({ ...form, merk: e.target.value })} />
-                {formErrors.merk && <div className="form-error">{formErrors.merk}</div>}
-              </div>
-            ) : null}
-            {form.kategori === 'HT' ? (
-              <div className="field">
-                <label>Model</label>
-                <input type="text" placeholder="Contoh: APX 1000" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
-              </div>
-            ) : null}
-            <div className="field">
-              <label>No. Seri</label>
-              <input type="text" placeholder="Contoh: 837TUB5774/750901" value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
-            </div>
-            <div className="field full">
-              <label>Lokasi <span className="req">*</span></label>
-              <select value={form.lokasi} onChange={e => setForm({ ...form, lokasi: e.target.value })}>
-                <option value="">Pilih lokasi</option>
-                {satwilList.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-              {formErrors.lokasi && <div className="form-error">{formErrors.lokasi}</div>}
-            </div>
-            <div className="field">
-              <label>Tanggal Masuk <span className="req">*</span></label>
-              <input type="date" value={form.tgl} onChange={e => setForm({ ...form, tgl: e.target.value })} />
-              {formErrors.tgl && <div className="form-error">{formErrors.tgl}</div>}
-            </div>
-          </div>
-          <div className="form-actions" style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 16 }}>
-            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); setIdNumber('') }}>Batal</button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Menyimpan...' : 'Simpan Data'}</button>
-          </div>
-        </form>
-      </Modal>
-    </div>
-  )
+  return <div>
+    <ToastContainer toasts={toasts} />
+    <ConfirmModal open={!!deleteTarget} title="Hapus Data Unit" message={`Yakin ingin menghapus "${deleteTarget?.nama || ''}"?`} confirmLabel="Hapus" confirmVariant="danger" onConfirm={remove} onCancel={() => setDeleteTarget(null)} />
+    <div className="page-head"><div><h1>Data Alat TIK</h1><p>Input alat berserial per unit atau stok massal langsung berdasarkan jumlah.</p></div><button className="btn btn-primary" onClick={openCreate}>+ Tambah Data</button></div>
+    <div className="kat-grid">{kategoriStats.map(item => <KategoriCard key={item.label} label={item.label} value={item.value} variant={item.label === 'HT' ? 'var(--polri-gold-2)' : 'var(--blue)'} />)}</div>
+    <div className="card"><div className="toolbar"><SearchBox placeholder="Cari nama, merk, nomor seri, atau lokasi..." value={searchTerm} onChange={event => setSearchTerm(event.target.value)} style={{ flex: 1, minWidth: 220 }} /><Select className="filter-btn" value={filterKategori} onChange={event => setFilterKategori(event.target.value)} placeholder="Semua Jenis" options={kategori} /><Select className="filter-btn" value={filterKondisi} onChange={event => setFilterKondisi(event.target.value)} placeholder="Semua Kondisi" options={kondisiOptions} /><Select className="filter-btn" value={filterLokasi} onChange={event => setFilterLokasi(event.target.value)} placeholder="Semua Lokasi" options={satwil} /></div>{loading ? <LoadingSpinner text="Memuat data..." /> : <><Table columns={columns} data={paginatedData} emptyMessage="Tidak ada data" id="tabel-alat" actions={item => item.recordType === 'Unit' && <div className="row-actions"><IconButton className="btn-icon" icon="✎" onClick={() => openEdit(item)} /><IconButton className="btn-icon" icon="⌫" onClick={() => setDeleteTarget(item)} /></div>} /><Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={10} totalItems={filtered.length} /></>}</div>
+    <Modal open={showForm} title={editing ? 'Edit Unit Alat TIK' : 'Tambah Data Alat TIK'} onClose={() => setShowForm(false)} size="large"><form onSubmit={submit}><div className="form-grid">{!editing && <div className="field full"><label>Mode Input</label><select value={mode} onChange={event => setMode(event.target.value)}><option value="batch">Batch Jumlah</option><option value="unit">Unit Berserial</option></select></div>}{mode === 'unit' ? <UnitFields form={unitForm} setForm={setUnitForm} idNumber={idNumber} setIdNumber={setIdNumber} kategori={kategori} satwil={satwil} /> : <BatchFields form={batchForm} setForm={setBatchForm} kategori={kategori} satwil={satwil} />}</div><div className="form-actions" style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 16 }}><button type="button" className="btn" onClick={() => setShowForm(false)}>Batal</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Menyimpan...' : 'Simpan Data'}</button></div></form></Modal>
+  </div>
 }
+
+function UnitFields({ form, setForm, idNumber, setIdNumber, kategori, satwil }) { return <><Field label="Jenis Alat"><select value={form.kategori} onChange={event => { setForm({ ...form, kategori: event.target.value }); setIdNumber('') }}>{kategori.map(item => <option key={item}>{item}</option>)}</select></Field><Field label="ID Alat"><input value={idNumber} placeholder="Contoh: 016" onChange={event => setIdNumber(event.target.value.replace(/\D/g, ''))} /></Field><Field label="Nama Barang"><input value={form.nama} onChange={event => setForm({ ...form, nama: event.target.value })} /></Field><Field label="Merk"><input value={form.merk} onChange={event => setForm({ ...form, merk: event.target.value })} /></Field><Field label="Model"><input value={form.model} onChange={event => setForm({ ...form, model: event.target.value })} /></Field><Field label="No. Seri"><input value={form.serial_number} onChange={event => setForm({ ...form, serial_number: event.target.value })} /></Field><CommonFields form={form} setForm={setForm} satwil={satwil} dateKey="tgl" /></> }
+function BatchFields({ form, setForm, kategori, satwil }) { return <><Field label="Jenis Alat"><select value={form.kategori} onChange={event => setForm({ ...form, kategori: event.target.value })}>{kategori.map(item => <option key={item}>{item}</option>)}</select></Field><Field label="Jumlah"><input type="number" min="1" value={form.jumlah} onChange={event => setForm({ ...form, jumlah: event.target.value })} /></Field><Field label="Nama Barang"><input value={form.nama} onChange={event => setForm({ ...form, nama: event.target.value })} /></Field><Field label="Merk"><input value={form.merk} onChange={event => setForm({ ...form, merk: event.target.value })} /></Field><Field label="Model"><input value={form.model} onChange={event => setForm({ ...form, model: event.target.value })} /></Field><Field label="No. Batch"><input value={form.nomor_batch} onChange={event => setForm({ ...form, nomor_batch: event.target.value })} /></Field><Field label="Satuan"><input value={form.satuan} onChange={event => setForm({ ...form, satuan: event.target.value })} /></Field><Field label="Sumber Pengadaan"><input value={form.sumber_pengadaan} onChange={event => setForm({ ...form, sumber_pengadaan: event.target.value })} /></Field><CommonFields form={form} setForm={setForm} satwil={satwil} dateKey="tanggal_masuk" /><div className="field full"><label>Keterangan</label><textarea value={form.keterangan} onChange={event => setForm({ ...form, keterangan: event.target.value })} /></div></> }
+function CommonFields({ form, setForm, satwil, dateKey }) { return <><Field label="Kondisi"><select value={form.kondisi} onChange={event => setForm({ ...form, kondisi: event.target.value })}>{kondisiOptions.map(item => <option key={item}>{item}</option>)}</select></Field><Field label="Lokasi"><select value={form.lokasi} onChange={event => setForm({ ...form, lokasi: event.target.value })}><option value="">Pilih lokasi</option>{satwil.map(item => <option key={item}>{item}</option>)}</select></Field><Field label="Tanggal Masuk"><input type="date" value={form[dateKey]} onChange={event => setForm({ ...form, [dateKey]: event.target.value })} /></Field></> }
+function Field({ label, children }) { return <div className="field"><label>{label} <span className="req">*</span></label>{children}</div> }
+async function resolveReference(table, name) { const { default: supabase } = await import('../lib/supabase'); const { data, error } = await supabase.from(table).select('id').eq('nama', name).single(); if (error) throw error; return data.id }
