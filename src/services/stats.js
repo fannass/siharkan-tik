@@ -47,7 +47,6 @@ export function computeStats(inventaris, pinjaman, suku_cadang, tracking, rekap 
   const scMenipis = suku_cadang.filter(s => s.stok < s.min_stok).length
   const scAman = suku_cadang.filter(s => s.stok >= s.min_stok).length
   const scTransaksiBln = suku_cadang.reduce((a, s) => a + (s.transaksi_bln || 0), 0)
-
   const trkTotal = tracking.length
   const trkBelum = tracking.filter(t => t.status === 'Belum Ditindaklanjuti').length
   const trkProses = tracking.filter(t => t.status === 'Proses').length

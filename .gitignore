@@ -44,3 +44,4 @@ Thumbs.db
 .agents/
 docs/
 supabase/migrations/rev db/
+scratch/

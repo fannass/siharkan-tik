@@ -63,9 +63,14 @@ async function resolveSatwilId(satwil) {
 }
 
 function mapTracking(item) {
-  const { satwil_id, created_at, updated_at, ...clean } = item
+  const satwilName = (typeof item.satwil === 'object' ? item.satwil?.nama : item.satwil) || '-'
   return {
-    ...clean,
-    satwil: item.satwil?.nama || item.satwil
+    id: item.id,
+    satwil: satwilName,
+    jenis: item.jenis || '',
+    tgl: item.tgl || (item.created_at ? item.created_at.slice(0, 10) : ''),
+    status: item.status || 'Belum Ditindaklanjuti',
+    file_url: item.file_url || '',
+    created_at: item.created_at
   }
 }
