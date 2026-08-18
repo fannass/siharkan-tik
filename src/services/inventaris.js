@@ -83,15 +83,6 @@ export async function deleteInventaris(id) {
     await supabase.from('pinjaman').update({ id_ht: null }).eq('id_ht', id)
   }
 
-  // Check tracking
-  const { data: activeTracking } = await supabase
-    .from('tracking')
-    .select('id, status')
-    .eq('id_ht', id)
-  if (activeTracking?.some(t => t.status !== 'Selesai')) {
-    throw new Error('Unit tidak dapat dihapus karena masih memiliki tiket perbaikan aktif')
-  }
-
   // Delete mutasi if any
   await supabase.from('inventaris_mutasi').delete().eq('inventaris_id', id)
 

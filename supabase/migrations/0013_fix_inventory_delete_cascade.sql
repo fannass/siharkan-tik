@@ -18,7 +18,11 @@ ALTER TABLE inventaris_mutasi
   ADD CONSTRAINT inventaris_mutasi_inventaris_id_fkey
   FOREIGN KEY (inventaris_id) REFERENCES inventaris(id) ON DELETE CASCADE;
 
--- 2. Fix Foreign Key Constraints on pinjaman
+-- 2. Ensure pinjaman has columns and proper foreign keys
+ALTER TABLE pinjaman
+  ADD COLUMN IF NOT EXISTS id_ht VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS batch_id UUID;
+
 ALTER TABLE pinjaman
   DROP CONSTRAINT IF EXISTS pinjaman_batch_id_fkey;
 
@@ -94,7 +98,6 @@ CREATE OR REPLACE FUNCTION delete_inventaris_unit(p_inventaris_id VARCHAR)
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_unreturned INTEGER;
-  v_active_tracking INTEGER;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Pengguna harus terautentikasi';
@@ -107,15 +110,6 @@ BEGIN
 
   IF v_unreturned > 0 THEN
     RAISE EXCEPTION 'Unit tidak dapat dihapus karena masih tercatat sedang dipinjam';
-  END IF;
-
-  -- Check if unit has active repair tracking
-  SELECT COUNT(*) INTO v_active_tracking
-  FROM tracking
-  WHERE id_ht = p_inventaris_id AND status <> 'Selesai';
-
-  IF v_active_tracking > 0 THEN
-    RAISE EXCEPTION 'Unit tidak dapat dihapus karena masih memiliki tiket perbaikan aktif';
   END IF;
 
   -- Unlink returned pinjaman
