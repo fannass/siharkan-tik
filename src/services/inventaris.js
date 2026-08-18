@@ -61,7 +61,15 @@ export async function updateInventaris(id, updates) {
 }
 
 export async function deleteInventaris(id) {
-  // Check active borrowings
+  // 1. Try atomic RPC first
+  const { data, error } = await supabase.rpc('delete_inventaris_unit', { p_inventaris_id: id })
+  if (!error) return data
+
+  if (error.message && !error.message.includes('function delete_inventaris_unit') && !error.message.includes('not found') && !error.message.includes('schema cache')) {
+    throw error
+  }
+
+  // 2. Fallback
   const { data: activeLoans, error: loanErr } = await supabase
     .from('pinjaman')
     .select('id, is_returned')
@@ -87,15 +95,15 @@ export async function deleteInventaris(id) {
   // Delete mutasi if any
   await supabase.from('inventaris_mutasi').delete().eq('inventaris_id', id)
 
-  const { error } = await supabase
+  const { error: delErr } = await supabase
     .from(TABLE)
     .delete()
     .eq('id', id)
-  if (error) {
-    if (error.message?.includes('violates foreign key')) {
-      throw new Error('Tidak dapat menghapus unit karena masih terkait dengan data transaksi di modul lain')
+  if (delErr) {
+    if (delErr.message?.includes('violates foreign key constraint') || delErr.message?.includes('inventaris_mutasi')) {
+      throw new Error('Gagal menghapus: relasi tabel mutasi terkunci. Silakan jalankan file migrasi 0013 di SQL Editor Supabase.')
     }
-    throw error
+    throw delErr
   }
 }
 

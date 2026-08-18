@@ -64,7 +64,16 @@ export async function updateInventarisBatch(id, updates) {
 }
 
 export async function deleteInventarisBatch(id) {
-  // Check active borrowings
+  // 1. Try atomic RPC first (handles RLS and constraints on server side)
+  const { data, error } = await supabase.rpc('delete_inventaris_batch', { p_batch_id: id })
+  if (!error) return data
+
+  // 2. If RPC fails with a business logic message (e.g. still borrowed), throw it directly
+  if (error.message && !error.message.includes('function delete_inventaris_batch') && !error.message.includes('not found') && !error.message.includes('schema cache')) {
+    throw error
+  }
+
+  // 3. Fallback for environments where migration 0013 has not been run yet
   const { data: activeLoans, error: loanErr } = await supabase
     .from('pinjaman')
     .select('id, is_returned, jumlah, jumlah_dikembalikan')
@@ -97,7 +106,12 @@ export async function deleteInventarisBatch(id) {
     .from('inventaris_batch')
     .delete()
     .eq('id', id)
-  if (batchErr) throw batchErr
+  if (batchErr) {
+    if (batchErr.message?.includes('violates foreign key constraint') || batchErr.message?.includes('inventaris_mutasi')) {
+      throw new Error('Gagal menghapus: relasi tabel mutasi terkunci. Silakan jalankan file migrasi 0013 di SQL Editor Supabase.')
+    }
+    throw batchErr
+  }
 }
 
 export async function mutateInventarisBatch(batchId, jenis, jumlah, options = {}) {
