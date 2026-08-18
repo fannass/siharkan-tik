@@ -61,11 +61,42 @@ export async function updateInventaris(id, updates) {
 }
 
 export async function deleteInventaris(id) {
+  // Check active borrowings
+  const { data: activeLoans, error: loanErr } = await supabase
+    .from('pinjaman')
+    .select('id, is_returned')
+    .eq('id_ht', id)
+  if (!loanErr && activeLoans?.some(l => !l.is_returned)) {
+    throw new Error('Unit tidak dapat dihapus karena masih tercatat sedang dipinjam')
+  }
+
+  // Unlink returned pinjaman if any so FK doesn't fail
+  if (activeLoans && activeLoans.length > 0) {
+    await supabase.from('pinjaman').update({ id_ht: null }).eq('id_ht', id)
+  }
+
+  // Check tracking
+  const { data: activeTracking } = await supabase
+    .from('tracking')
+    .select('id, status')
+    .eq('id_ht', id)
+  if (activeTracking?.some(t => t.status !== 'Selesai')) {
+    throw new Error('Unit tidak dapat dihapus karena masih memiliki tiket perbaikan aktif')
+  }
+
+  // Delete mutasi if any
+  await supabase.from('inventaris_mutasi').delete().eq('inventaris_id', id)
+
   const { error } = await supabase
     .from(TABLE)
     .delete()
     .eq('id', id)
-  if (error) throw error
+  if (error) {
+    if (error.message?.includes('violates foreign key')) {
+      throw new Error('Tidak dapat menghapus unit karena masih terkait dengan data transaksi di modul lain')
+    }
+    throw error
+  }
 }
 
 async function ensureRefs(item) {
